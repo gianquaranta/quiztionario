@@ -87,6 +87,10 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
       return { ...state, students: action.payload }
     case "SET_PARTICIPANTS_LIST":
       console.log("📋 SETTING COMPLETE PARTICIPANTS LIST:", action.payload.length, "participants")
+      console.log(
+        "📋 Participants received:",
+        action.payload.map((p) => p.student_name),
+      )
       return { ...state, students: action.payload }
     case "ADD_RESPONSE":
       console.log("📨 ADDING RESPONSE TO STATE:", action.payload.participant?.student_name)

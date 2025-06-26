@@ -319,15 +319,9 @@ function TeacherDashboard() {
         }
       }
 
-      // Marcar que ya se otorgaron puntos para esta pregunta
-      setQuestionActive(false)
-      setCurrentQuestion(null)
-      setResponses([])
-
-      // Actualizar contexto
-      dispatch({ type: "SET_QUESTION_ACTIVE", payload: false })
-
-      console.log(`🏆 Se otorgaron ${points} puntos al participante ${participantId}`)
+      // La pregunta se cierra automáticamente cuando se otorgan puntos
+      // El servidor enviará "question-ended" que actualizará el estado
+      console.log(`🏆 Puntos otorgados - la pregunta se cerrará automáticamente`)
     } catch (error) {
       console.error("❌ Error al otorgar puntos:", error)
     }
