@@ -1,109 +1,95 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useReducer, useEffect, useCallback } from "react"
-import { socketManager } from "./socket"
-import type { Quiz, Question, SessionParticipant, QuizSession } from "./supabase"
+import { createContext, useContext, useReducer, useEffect } from "react"
+import { io, type Socket } from "socket.io-client"
 
-interface Student extends SessionParticipant {
-  lastResponseTime?: number
+// Types
+interface Student {
+  id: string
+  student_name: string
+  total_points: number
+  is_connected: boolean
+  joined_at: string
+}
+
+interface Response {
+  id: string
+  participant: Student
+  responseTime: number
+  timestamp: number
 }
 
 interface QuizState {
   students: Student[]
-  activeQuiz: QuizSession | null
-  currentQuestion: Question | null
+  responses: Response[]
+  currentQuestion: any
   questionActive: boolean
-  questionStartTime: number | null
-  responses: Array<{ studentId: string; responseTime: number; participant?: SessionParticipant; id?: string }>
-  quizzes: Quiz[]
-  teacherId: string | null
-  currentSessionCode: string | null
+  socket: Socket | null
   isConnected: boolean
 }
 
 type QuizAction =
-  | { type: "SET_TEACHER_ID"; payload: string | null }
-  | { type: "SET_QUIZZES"; payload: Quiz[] }
-  | { type: "ADD_QUIZ"; payload: Quiz }
-  | { type: "SET_ACTIVE_QUIZ_SESSION"; payload: QuizSession | null }
-  | { type: "UPDATE_SESSION_PARTICIPANTS"; payload: SessionParticipant[] }
-  | { type: "START_QUESTION"; payload: { question: Question; startTime: number } }
-  | { type: "END_QUESTION" }
-  | {
-      type: "ADD_STUDENT_RESPONSE"
-      payload: { studentId: string; responseTime: number; participant?: SessionParticipant; id?: string }
-    }
-  | { type: "UPDATE_STUDENT_POINTS"; payload: { studentId: string; points: number } }
-  | { type: "SET_CURRENT_SESSION_CODE"; payload: string | null }
-  | { type: "SET_CONNECTION_STATUS"; payload: boolean }
+  | { type: "SET_SOCKET"; payload: Socket }
+  | { type: "SET_CONNECTED"; payload: boolean }
+  | { type: "ADD_STUDENT"; payload: Student }
+  | { type: "REMOVE_STUDENT"; payload: string }
+  | { type: "UPDATE_STUDENT_POINTS"; payload: { id: string; points: number } }
+  | { type: "SET_STUDENTS"; payload: Student[] }
+  | { type: "ADD_RESPONSE"; payload: Response }
+  | { type: "CLEAR_RESPONSES" }
+  | { type: "SET_CURRENT_QUESTION"; payload: any }
+  | { type: "SET_QUESTION_ACTIVE"; payload: boolean }
+  | { type: "RESET_QUIZ" }
 
 const initialState: QuizState = {
   students: [],
-  activeQuiz: null,
+  responses: [],
   currentQuestion: null,
   questionActive: false,
-  questionStartTime: null,
-  responses: [],
-  quizzes: [],
-  teacherId: null,
-  currentSessionCode: null,
+  socket: null,
   isConnected: false,
 }
 
 function quizReducer(state: QuizState, action: QuizAction): QuizState {
   switch (action.type) {
-    case "SET_TEACHER_ID":
-      return { ...state, teacherId: action.payload }
-    case "SET_QUIZZES":
-      return { ...state, quizzes: action.payload }
-    case "ADD_QUIZ":
-      return { ...state, quizzes: [...state.quizzes, action.payload] }
-    case "SET_ACTIVE_QUIZ_SESSION":
+    case "SET_SOCKET":
+      return { ...state, socket: action.payload }
+    case "SET_CONNECTED":
+      return { ...state, isConnected: action.payload }
+    case "ADD_STUDENT":
       return {
         ...state,
-        activeQuiz: action.payload,
-        currentSessionCode: action.payload?.session_code || null,
-        students: action.payload?.participants || [],
+        students: [...state.students.filter((s) => s.id !== action.payload.id), action.payload],
       }
-    case "UPDATE_SESSION_PARTICIPANTS":
+    case "REMOVE_STUDENT":
       return {
         ...state,
-        students: action.payload.map((p) => ({ ...p, isConnected: true })),
-      }
-    case "START_QUESTION":
-      return {
-        ...state,
-        currentQuestion: action.payload.question,
-        questionActive: true,
-        questionStartTime: action.payload.startTime,
-        responses: [],
-      }
-    case "END_QUESTION":
-      return {
-        ...state,
-        currentQuestion: null,
-        questionActive: false,
-        questionStartTime: null,
-        responses: [],
-      }
-    case "ADD_STUDENT_RESPONSE":
-      const newResponses = [...state.responses, action.payload].sort((a, b) => a.responseTime - b.responseTime)
-      return {
-        ...state,
-        responses: newResponses,
+        students: state.students.filter((s) => s.id !== action.payload),
       }
     case "UPDATE_STUDENT_POINTS":
       return {
         ...state,
         students: state.students.map((s) =>
-          s.id === action.payload.studentId ? { ...s, total_points: action.payload.points } : s,
+          s.id === action.payload.id ? { ...s, total_points: action.payload.points } : s,
         ),
       }
-    case "SET_CURRENT_SESSION_CODE":
-      return { ...state, currentSessionCode: action.payload }
-    case "SET_CONNECTION_STATUS":
-      return { ...state, isConnected: action.payload }
+    case "SET_STUDENTS":
+      return { ...state, students: action.payload }
+    case "ADD_RESPONSE":
+      console.log("🎯 Agregando respuesta al contexto:", action.payload)
+      return {
+        ...state,
+        responses: [...state.responses, action.payload].sort((a, b) => a.responseTime - b.responseTime),
+      }
+    case "CLEAR_RESPONSES":
+      return { ...state, responses: [] }
+    case "SET_CURRENT_QUESTION":
+      return { ...state, currentQuestion: action.payload }
+    case "SET_QUESTION_ACTIVE":
+      return { ...state, questionActive: action.payload }
+    case "RESET_QUIZ":
+      return { ...initialState, socket: state.socket, isConnected: state.isConnected }
     default:
       return state
   }
@@ -118,81 +104,88 @@ const QuizContext = createContext<{
 export function QuizProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(quizReducer, initialState)
 
-  // Connect to Socket.IO and set up listeners
   useEffect(() => {
-    const socket = socketManager.connect()
+    console.log("🔌 Inicializando Socket.IO...")
 
-    // Connection status
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "", {
+      path: "/api/socket.io",
+      addTrailingSlash: false,
+    })
+
     socket.on("connect", () => {
-      dispatch({ type: "SET_CONNECTION_STATUS", payload: true })
+      console.log("✅ Socket conectado:", socket.id)
+      dispatch({ type: "SET_CONNECTED", payload: true })
     })
 
     socket.on("disconnect", () => {
-      dispatch({ type: "SET_CONNECTION_STATUS", payload: false })
+      console.log("❌ Socket desconectado")
+      dispatch({ type: "SET_CONNECTED", payload: false })
     })
 
-    // Quiz events
-    socket.on("student-joined", (participant: SessionParticipant) => {
-      console.log("🎓 Socket: Student joined", participant)
-      dispatch({ type: "UPDATE_SESSION_PARTICIPANTS", payload: [...state.students, participant] })
+    // Eventos para el profesor
+    socket.on("student-joined", (participant: Student) => {
+      console.log("👥 Estudiante se unió:", participant)
+      dispatch({ type: "ADD_STUDENT", payload: participant })
     })
 
-    socket.on("question-active", (question: Question, startTime: number) => {
-      console.log("❓ Socket: Question active", question)
-      dispatch({ type: "START_QUESTION", payload: { question, startTime } })
+    socket.on("student-left", (participant: Student) => {
+      console.log("👋 Estudiante se fue:", participant)
+      dispatch({ type: "REMOVE_STUDENT", payload: participant.id })
     })
 
-    socket.on(
-      "new-response",
-      (data: { participantId: string; responseTime: number; participant: SessionParticipant; responseId?: string }) => {
-        console.log("⚡ Socket: New response", data)
-        dispatch({
-          type: "ADD_STUDENT_RESPONSE",
-          payload: {
-            studentId: data.participantId,
-            responseTime: data.responseTime,
-            participant: data.participant,
-            id: data.responseId,
-          },
-        })
-      },
-    )
+    socket.on("new-response", (responseData: any) => {
+      console.log("📨 Nueva respuesta recibida:", responseData)
 
-    socket.on("points-awarded", (data: { participantId: string; totalPoints: number }) => {
-      console.log("🏆 Socket: Points awarded", data)
-      dispatch({
-        type: "UPDATE_STUDENT_POINTS",
-        payload: { studentId: data.participantId, points: data.totalPoints },
-      })
+      const response: Response = {
+        id: responseData.id || `${responseData.participant?.id}-${Date.now()}`,
+        participant: responseData.participant,
+        responseTime: responseData.responseTime,
+        timestamp: Date.now(),
+      }
+
+      dispatch({ type: "ADD_RESPONSE", payload: response })
+    })
+
+    socket.on("points-awarded", ({ participantId, totalPoints }: { participantId: string; totalPoints: number }) => {
+      console.log("🏆 Puntos otorgados:", participantId, totalPoints)
+      dispatch({ type: "UPDATE_STUDENT_POINTS", payload: { id: participantId, points: totalPoints } })
+    })
+
+    // Eventos para estudiantes
+    socket.on("question-active", (question: any, startTime: number) => {
+      console.log("❓ Pregunta activa:", question)
+      dispatch({ type: "SET_CURRENT_QUESTION", payload: { ...question, startTime } })
+      dispatch({ type: "SET_QUESTION_ACTIVE", payload: true })
     })
 
     socket.on("question-ended", () => {
-      console.log("⏹️ Socket: Question ended")
-      dispatch({ type: "END_QUESTION" })
+      console.log("⏹️ Pregunta terminada")
+      dispatch({ type: "SET_QUESTION_ACTIVE", payload: false })
+      dispatch({ type: "SET_CURRENT_QUESTION", payload: null })
+      dispatch({ type: "CLEAR_RESPONSES" })
     })
 
     socket.on("session-ended", () => {
-      console.log("🛑 Socket: Session ended")
-      dispatch({ type: "END_QUESTION" })
-      dispatch({ type: "SET_ACTIVE_QUIZ_SESSION", payload: null })
+      console.log("🛑 Sesión terminada")
+      dispatch({ type: "RESET_QUIZ" })
     })
 
-    return () => {
-      socket.off("connect")
-      socket.off("disconnect")
-      socket.off("student-joined")
-      socket.off("question-active")
-      socket.off("new-response")
-      socket.off("points-awarded")
-      socket.off("question-ended")
-      socket.off("session-ended")
-    }
-  }, [state.students])
+    dispatch({ type: "SET_SOCKET", payload: socket })
 
-  // Expose emit function
-  const emit = useCallback((event: string, ...args: any[]) => {
-    socketManager.emit(event, ...args)
+    return () => {
+      console.log("🔌 Desconectando socket...")
+      socket.disconnect()
+    }
   }, [])
+
+  const emit = (event: string, ...args: any[]) => {
+    if (state.socket && state.isConnected) {
+      console.log(`📤 Emitiendo evento: ${event}`, args)
+      state.socket.emit(event, ...args)
+    } else {
+      console.warn("⚠️ Socket no conectado, no se puede emitir:", event)
+    }
+  }
 
   return <QuizContext.Provider value={{ state, dispatch, emit }}>{children}</QuizContext.Provider>
 }
@@ -200,7 +193,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
 export function useQuiz() {
   const context = useContext(QuizContext)
   if (!context) {
-    throw new Error("useQuiz must be used within a QuizProvider")
+    throw new Error("useQuiz debe usarse dentro de QuizProvider")
   }
   return context
 }

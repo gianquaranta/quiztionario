@@ -1,446 +1,192 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Zap, Star, Users, Home } from "lucide-react"
-import Link from "next/link"
-import { useQuiz } from "@/lib/quiz-context"
-import { db, type SessionParticipant } from "@/lib/supabase"
+import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { io } from "socket.io-client"
+import { useSearchParams } from "next/navigation"
+import { db } from "@/lib/db"
+
+let socket: any
 
 export default function StudentPage() {
-  const { state, dispatch, emit } = useQuiz()
-  const [studentName, setStudentName] = useState("")
-  const [sessionCode, setSessionCode] = useState("")
-  const [currentParticipant, setCurrentParticipant] = useState<SessionParticipant | null>(null)
-  const [isJoined, setIsJoined] = useState(false)
+  const [sessionData, setSessionData] = useState<any>(null)
+  const [participant, setParticipant] = useState<any>(null)
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null)
   const [hasResponded, setHasResponded] = useState(false)
-  const [responseTime, setResponseTime] = useState<number | null>(null)
-  const [rank, setRank] = useState<number | null>(null)
-  const [showCelebration, setShowCelebration] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [responseTime, setResponseTime] = useState(0)
+  const [sessionCodeValid, setSessionCodeValid] = useState(false)
+  const [nameValid, setNameValid] = useState(false)
+  const [showNameInput, setShowNameInput] = useState(true)
+  const [studentName, setStudentName] = useState("")
   const [error, setError] = useState("")
 
-  const leaderboard = [...state.students]
-    .sort((a, b) => b.total_points - a.total_points)
-    .filter((s) => s.total_points > 0)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const sessionCode = searchParams.get("sessionCode")
 
-  const joinQuiz = async () => {
-    if (!studentName.trim() || !sessionCode.trim()) {
-      setError("Por favor ingresa tu nombre y el código de sesión")
-      return
-    }
-
-    setLoading(true)
-    setError("")
-
-    try {
-      const session = await db.getSessionByCode(sessionCode.toUpperCase())
-      if (!session) {
-        setError("Sesión no encontrada. Verifica el código e intenta nuevamente.")
-        return
-      }
-
-      const participant = await db.joinSession(session.id, studentName)
-      setCurrentParticipant(participant)
-      setIsJoined(true)
-
-      emit("student-join-session", sessionCode.toUpperCase(), participant)
-
-      console.log("🎓 Te uniste exitosamente a la sesión:", sessionCode.toUpperCase())
-    } catch (error) {
-      console.error("Error al unirse a la sesión:", error)
-      setError("No se pudo unir a la sesión. Intenta nuevamente.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const respondToQuestion = async () => {
-    if (!state.questionStartTime || !currentParticipant) return
-
-    const time = Date.now() - state.questionStartTime
-    setResponseTime(time)
-    setHasResponded(true)
-
-    try {
-      if (state.currentQuestion) {
-        const response = await db.recordStudentResponse(
-          currentParticipant.session_id,
-          currentParticipant.id,
-          state.currentQuestion.id,
-          time,
-        )
-
-        emit("student-response", state.currentSessionCode, {
-          participantId: currentParticipant.id,
-          responseTime: time,
-          participant: currentParticipant,
-          responseId: response.id,
-        })
-
-        const currentRank = state.responses.length + 1
-        setRank(currentRank)
-
-        if (currentRank <= 3) {
-          setShowCelebration(true)
-          setTimeout(() => setShowCelebration(false), 3000)
-        }
-      }
-    } catch (error) {
-      console.error("Error al registrar respuesta:", error)
-    }
-  }
+  const socketRef = useRef(socket)
 
   useEffect(() => {
-    if (state.questionActive && state.currentQuestion) {
+    if (sessionCode) {
+      validateSessionCode(sessionCode)
+    }
+  }, [sessionCode])
+
+  useEffect(() => {
+    if (sessionCodeValid && studentName) {
+      joinSession(sessionCode, studentName)
+    }
+  }, [sessionCodeValid, studentName])
+
+  useEffect(() => {
+    socketInitializer()
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+      }
+    }
+  }, [])
+
+  const socketInitializer = async () => {
+    await fetch("/api/socket")
+    socket = io()
+
+    socketRef.current = socket
+
+    socket.on("connect", () => {
+      console.log("Student Socket connected", socket.id)
+    })
+
+    socket.on("question", (question: any) => {
+      console.log("🔥 Nueva pregunta:", question)
+      setCurrentQuestion(question)
       setHasResponded(false)
-      setResponseTime(null)
-      setRank(null)
-    }
-  }, [state.questionActive, state.currentQuestion])
+      question.startTime = Date.now()
+    })
 
-  useEffect(() => {
-    if (currentParticipant) {
-      const updatedParticipant = state.students.find((s) => s.id === currentParticipant.id)
-      if (updatedParticipant) {
-        setCurrentParticipant(updatedParticipant)
+    socket.on("session-ended", () => {
+      console.log("Session ended")
+      alert("Session ended by the teacher.")
+      router.push("/")
+    })
+  }
+
+  const emit = (event: string, sessionCode: string, data: any) => {
+    socket.emit(event, sessionCode, data)
+  }
+
+  const validateSessionCode = async (sessionCode: string) => {
+    try {
+      const session = await db.getSessionByCode(sessionCode)
+      if (session) {
+        setSessionData(session)
+        setSessionCodeValid(true)
+      } else {
+        setError("Invalid session code")
+        setSessionCodeValid(false)
       }
+    } catch (error) {
+      console.error("Error validating session code:", error)
+      setError("Error validating session code")
+      setSessionCodeValid(false)
     }
-  }, [state.students, currentParticipant])
+  }
 
-  if (!isJoined) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-100 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float"></div>
-          <div className="absolute top-3/4 right-1/4 w-64 h-64 bg-indigo-100 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float-delayed"></div>
-        </div>
+  const joinSession = async (sessionCode: string, studentName: string) => {
+    try {
+      const participant = await db.addParticipantToSession(sessionCode, studentName)
+      setParticipant(participant)
+      setShowNameInput(false)
+    } catch (error) {
+      console.error("Error joining session:", error)
+      setError("Error joining session")
+    }
+  }
 
-        <div className="max-w-md mx-auto pt-20 relative z-10">
-          <Card className="bg-white/90 backdrop-blur-lg border border-slate-200 shadow-xl">
-            <CardHeader className="text-center">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center animate-bounce shadow-lg">
-                <Star className="w-10 h-10 text-white" />
-              </div>
-              <CardTitle className="text-3xl text-slate-800">🎮 ¡Únete al Quiz!</CardTitle>
-              <CardDescription className="text-slate-600 text-lg">
-                Ingresa tu nombre y el código de sesión
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <Label htmlFor="name" className="text-slate-700 text-lg">
-                  Tu Nombre
-                </Label>
-                <Input
-                  id="name"
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
-                  placeholder="Ingresa tu nombre"
-                  className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 text-lg h-12 focus:border-blue-500"
-                />
-              </div>
+  const handleNameSubmit = () => {
+    if (studentName.trim() !== "") {
+      setNameValid(true)
+      joinSession(sessionCode!, studentName)
+    } else {
+      setError("Please enter your name")
+    }
+  }
 
-              <div>
-                <Label htmlFor="code" className="text-slate-700 text-lg">
-                  Código de Sesión
-                </Label>
-                <Input
-                  id="code"
-                  value={sessionCode}
-                  onChange={(e) => setSessionCode(e.target.value.toUpperCase())}
-                  placeholder="Código de 6 dígitos"
-                  className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 text-lg h-12 text-center font-mono focus:border-blue-500"
-                  maxLength={6}
-                />
-                <p className="text-slate-500 text-sm mt-1">Tu profesor te dará este código</p>
-              </div>
+  const submitResponse = async () => {
+    if (!currentQuestion || !participant || hasResponded) return
 
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-red-700 text-sm">❌ {error}</p>
-                </div>
-              )}
+    const responseTime = Date.now() - currentQuestion.startTime
+    setHasResponded(true)
+    setResponseTime(responseTime)
 
-              <Button
-                onClick={joinQuiz}
-                disabled={loading || !studentName.trim() || !sessionCode.trim()}
-                className="w-full h-14 text-xl font-bold bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                {loading ? "Uniéndose..." : "🚀 ¡Unirse al Quiz!"}
-              </Button>
+    try {
+      // Registrar en la base de datos
+      const response = await db.recordStudentResponse(sessionData.id, participant.id, currentQuestion.id, responseTime)
 
-              <Link href="/">
-                <Button variant="ghost" className="w-full text-slate-600 hover:text-slate-800 hover:bg-slate-100">
-                  <Home className="w-4 h-4 mr-2" />
-                  Volver al Inicio
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
+      // Emitir al profesor con todos los datos necesarios
+      const responseData = {
+        id: response.id,
+        participant: participant,
+        responseTime: responseTime,
+        sessionCode: sessionData.session_code,
+        questionId: currentQuestion.id,
+      }
 
-        <style jsx>{`
-          @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(180deg); }
-          }
-          @keyframes float-delayed {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-30px) rotate(-180deg); }
-          }
-          .animate-float {
-            animation: float 6s ease-in-out infinite;
-          }
-          .animate-float-delayed {
-            animation: float-delayed 8s ease-in-out infinite;
-            animation-delay: 2s;
-          }
-        `}</style>
-      </div>
-    )
+      console.log("📤 Enviando respuesta:", responseData)
+      emit("student-response", sessionData.session_code, responseData)
+    } catch (error) {
+      console.error("❌ Error al enviar respuesta:", error)
+      setHasResponded(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 relative overflow-hidden">
-      {/* Celebración */}
-      {showCelebration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="text-center animate-bounce">
-            <div className="text-8xl mb-4">🎉</div>
-            <h2 className="text-4xl font-bold text-white mb-2">¡Increíble Velocidad!</h2>
-            <p className="text-xl text-white/80">¡Estás en el top 3! 🏆</p>
-          </div>
+    <div className="flex flex-col items-center justify-center min-h-screen py-2">
+      <h1 className="text-2xl font-bold">Student Page</h1>
+      {error && <p className="text-red-500">{error}</p>}
+
+      {showNameInput && (
+        <div className="mt-4">
+          <input
+            type="text"
+            placeholder="Enter your name"
+            className="border rounded py-2 px-3"
+            value={studentName}
+            onChange={(e) => setStudentName(e.target.value)}
+          />
+          <button
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ml-2"
+            onClick={handleNameSubmit}
+          >
+            Join Session
+          </button>
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto relative z-10">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800">🌟 ¡Hola {studentName}!</h1>
-            <p className="text-slate-600 text-lg">¿Listo para dominar este quiz? 💪</p>
-            {state.currentSessionCode && <p className="text-slate-500">Sesión: {state.currentSessionCode}</p>}
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-lg font-bold border border-amber-200">
-              🏆 {currentParticipant?.total_points || 0} puntos
-            </div>
-            <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm border border-blue-200">
-              <Users className="w-4 h-4 inline mr-1" />
-              {state.students.length} jugadores
-            </div>
-            <Link href="/">
-              <Button variant="outline" className="border-slate-300 text-slate-600 hover:bg-slate-100">
-                <Home className="w-4 h-4 mr-2" />
-                Salir
-              </Button>
-            </Link>
-          </div>
+      {sessionData && participant && (
+        <div className="mt-4">
+          <p>
+            Session Code: {sessionData.session_code} - Participant: {participant.name}
+          </p>
         </div>
+      )}
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Área principal de preguntas */}
-          <div className="lg:col-span-2">
-            {state.questionActive && state.currentQuestion ? (
-              <Card className="border-4 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 backdrop-blur-lg shadow-2xl animate-pulse-border">
-                <CardHeader>
-                  <CardTitle className="text-slate-800 text-2xl flex items-center gap-2 animate-bounce">
-                    ⚡ ¡PREGUNTA ACTIVA! ⚡
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="text-2xl font-bold text-slate-800 p-6 bg-white/80 rounded-lg border border-slate-200 text-center">
-                    {state.currentQuestion.question_text}
-                  </div>
-
-                  {!hasResponded ? (
-                    <Button
-                      onClick={respondToQuestion}
-                      size="lg"
-                      className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 shadow-lg hover:shadow-xl transition-all duration-300 animate-pulse"
-                    >
-                      <Zap className="w-8 h-8 mr-3" />
-                      ¡PRESIONA AHORA! ⚡
-                    </Button>
-                  ) : (
-                    <div className="text-center space-y-4">
-                      <div className="p-6 bg-green-50 rounded-lg border border-green-200">
-                        <div className="text-4xl mb-2">🎯</div>
-                        <p className="text-2xl font-bold text-green-700">¡Respuesta Registrada!</p>
-                        <p className="text-slate-600 text-lg">
-                          Tu tiempo: {responseTime ? (responseTime / 1000).toFixed(2) : 0}s ⚡
-                        </p>
-                        {rank && (
-                          <div className="mt-3">
-                            <Badge
-                              variant={rank <= 3 ? "default" : "secondary"}
-                              className={`text-lg px-4 py-2 ${
-                                rank === 1
-                                  ? "bg-yellow-500 text-black"
-                                  : rank === 2
-                                    ? "bg-gray-400 text-white"
-                                    : rank === 3
-                                      ? "bg-orange-500 text-white"
-                                      : "bg-blue-500 text-white"
-                              }`}
-                            >
-                              {rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "🏅"} Posición #{rank}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-slate-500 animate-pulse">⏳ Esperando que el profesor asigne puntos...</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="bg-white/80 backdrop-blur-lg border border-slate-200">
-                <CardContent className="text-center py-16">
-                  <div className="animate-spin text-6xl mb-6">🎯</div>
-                  <h3 className="text-2xl font-bold text-slate-800 mb-4">¡Prepárate para la Acción! 🚀</h3>
-                  <p className="text-slate-600 text-lg">
-                    Las preguntas pueden aparecer en cualquier momento... ¡Mantente alerta! ⚡
-                  </p>
-                  <div className="mt-6 flex justify-center gap-4">
-                    <div className="bg-blue-100 text-blue-700 px-4 py-2 rounded-full border border-blue-200">
-                      🎮 Modo Juego: ACTIVO
-                    </div>
-                    <div
-                      className={`px-4 py-2 rounded-full border ${state.isConnected ? "bg-green-100 text-green-700 border-green-200" : "bg-red-100 text-red-700 border-red-200"}`}
-                    >
-                      {state.isConnected ? "🟢 Conectado" : "🔴 Desconectado"}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Estadísticas del estudiante */}
-            <Card className="mt-6 bg-white/80 backdrop-blur-lg border border-slate-200">
-              <CardHeader>
-                <CardTitle className="text-slate-800 text-xl">📊 Tus Estadísticas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <p className="text-3xl font-bold text-blue-700">{currentParticipant?.total_points || 0}</p>
-                    <p className="text-slate-600">Puntos Totales 🏆</p>
-                  </div>
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                    <p className="text-3xl font-bold text-green-700">
-                      {leaderboard.findIndex((s) => s.student_name === studentName) + 1 || "-"}
-                    </p>
-                    <p className="text-slate-600">Posición Actual 📈</p>
-                  </div>
-                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                    <p className="text-3xl font-bold text-purple-700">
-                      {responseTime ? (responseTime / 1000).toFixed(1) + "s" : "-"}
-                    </p>
-                    <p className="text-slate-600">Última Velocidad ⚡</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Tabla de posiciones */}
-          <div>
-            <Card className="bg-white/80 backdrop-blur-lg border border-slate-200">
-              <CardHeader>
-                <CardTitle className="text-slate-800 text-xl flex items-center gap-2">🏆 Tabla de Posiciones</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {leaderboard.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="text-4xl mb-4">🎯</div>
-                    <p className="text-slate-600">¡Aún no hay campeones! ¡Sé el primero! 🚀</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {leaderboard.map((student, index) => (
-                      <div
-                        key={student.id}
-                        className={`flex items-center justify-between p-4 rounded-lg border transition-all ${
-                          student.student_name === studentName
-                            ? "bg-amber-50 border-amber-300 shadow-md"
-                            : "bg-slate-50 border-slate-200"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
-                              index === 0
-                                ? "bg-yellow-500 text-black"
-                                : index === 1
-                                  ? "bg-gray-400 text-white"
-                                  : index === 2
-                                    ? "bg-orange-500 text-white"
-                                    : "bg-blue-500 text-white"
-                            }`}
-                          >
-                            {index === 0 ? "👑" : index + 1}
-                          </div>
-                          <div>
-                            <p
-                              className={`font-bold ${student.student_name === studentName ? "text-amber-700" : "text-slate-800"}`}
-                            >
-                              {student.student_name === studentName ? "🌟 TÚ 🌟" : student.student_name}
-                            </p>
-                            {index === 0 && <p className="text-amber-600 text-sm">¡Campeón del Quiz! 🏆</p>}
-                          </div>
-                        </div>
-                        <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold border border-purple-200">
-                          {student.total_points} pts
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="mt-6 bg-white/80 backdrop-blur-lg border border-slate-200">
-              <CardHeader>
-                <CardTitle className="text-slate-800 text-xl flex items-center gap-2">👥 Todos los Jugadores</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {state.students.map((student) => (
-                    <div key={student.id} className="flex items-center justify-between p-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                        <span
-                          className={`${student.student_name === studentName ? "text-amber-700 font-bold" : "text-slate-800"}`}
-                        >
-                          {student.student_name === studentName ? "⭐ " + student.student_name : student.student_name}
-                        </span>
-                      </div>
-                      <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs border border-blue-200">
-                        {student.total_points} pts
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+      {currentQuestion && (
+        <div className="mt-8">
+          <p className="text-lg font-semibold">Question: {currentQuestion.text}</p>
+          {!hasResponded ? (
+            <button
+              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4"
+              onClick={submitResponse}
+            >
+              Send Response
+            </button>
+          ) : (
+            <p className="mt-4">Response sent! Time taken: {responseTime}ms</p>
+          )}
         </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes pulse-border {
-          0%, 100% { border-color: rgb(251 191 36); }
-          50% { border-color: rgb(249 115 22); }
-        }
-        .animate-pulse-border {
-          animation: pulse-border 2s ease-in-out infinite;
-        }
-      `}</style>
+      )}
     </div>
   )
 }

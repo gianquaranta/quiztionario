@@ -143,11 +143,19 @@ function TeacherDashboard() {
   }, [teacherId])
 
   useEffect(() => {
+    console.log("🔄 Estado actualizado:", {
+      students: state.students.length,
+      responses: state.responses.length,
+      questionActive: state.questionActive,
+      currentQuestion: state.currentQuestion?.question_text,
+    })
+
     if (state.students.length > 0) {
       setParticipants(state.students)
     }
 
     if (state.responses.length > 0) {
+      console.log("📊 Respuestas recibidas:", state.responses)
       setResponses(state.responses)
     }
 
