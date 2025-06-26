@@ -2,25 +2,13 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
+
+console.log('🔧 Initializing server...');
 
 const app = express();
 const server = createServer(app);
-
-// Middleware para parsear JSON
-app.use(express.json());
-
-// Middleware para servir archivos estáticos si es necesario
-app.use(express.static('public'));
-
-// Middleware de logging para debug
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  if (req.path.includes('socket.io')) {
-    console.log('Socket.IO request detected:', req.headers);
-  }
-  next();
-});
 
 // Configuración de CORS para Express
 const allowedOrigins = [
@@ -32,6 +20,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
+    console.log('🔍 CORS check for origin:', origin);
     // Permitir requests sin origin (como mobile apps o Postman)
     if (!origin) return callback(null, true);
     
@@ -40,18 +29,36 @@ app.use(cors({
         origin.includes('vercel.app') || 
         origin.includes('localhost') ||
         origin.includes('koyeb.app')) {
+      console.log('✅ CORS allowed for:', origin);
       return callback(null, true);
     }
     
+    console.log('❌ CORS blocked for:', origin);
     callback(new Error('No permitido por CORS'));
   },
   credentials: true
 }));
 
-// Configuración de Socket.IO con CORS
+// Middleware para parsear JSON
+app.use(express.json());
+
+// Middleware para servir archivos estáticos si es necesario
+app.use(express.static('public'));
+
+// Middleware de logging para debug
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.path.includes('socket.io')) {
+    console.log('🔍 Socket.IO request detected:', req.headers);
+  }
+  next();
+});
+
+// Configuración de Socket.IO con CORS - MOVER ANTES DE LAS RUTAS
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
+      console.log('🔍 Socket.IO CORS check for origin:', origin);
       // Permitir requests sin origin
       if (!origin) return callback(null, true);
       
@@ -60,21 +67,26 @@ const io = new Server(server, {
           origin.includes('vercel.app') || 
           origin.includes('localhost') ||
           origin.includes('koyeb.app')) {
+        console.log('✅ Socket.IO CORS allowed for:', origin);
         return callback(null, true);
       }
       
+      console.log('❌ Socket.IO CORS blocked for:', origin);
       callback(new Error('No permitido por CORS'));
     },
     methods: ["GET", "POST"],
     credentials: true
   },
-  transports: ['websocket', 'polling'],
+  transports: ['polling', 'websocket'], // Polling primero para Koyeb
   pingTimeout: 60000,
   pingInterval: 25000,
   allowEIO3: true,
   path: '/socket.io/',
-  serveClient: true
+  serveClient: true,
+  cookie: false
 });
+
+console.log('🔧 Socket.IO initialized with path: /socket.io/');
 
 // Almacenamiento en memoria para los quizzes (en producción usa una base de datos)
 const activeQuizzes = new Map();
@@ -118,9 +130,17 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       socket: '/socket.io',
+      'socket-status': '/socket-status',
       test: '/test-socket'
     }
   });
+});
+
+// Middleware para debug de Socket.IO requests
+app.use('/socket.io/*', (req, res, next) => {
+  console.log(`🔍 Socket.IO request: ${req.method} ${req.originalUrl}`);
+  console.log('Headers:', req.headers);
+  next();
 });
 
 // Ruta de prueba para Socket.IO
@@ -568,9 +588,19 @@ io.on('connection', (socket) => {
 
 // Iniciar servidor
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`🌐 Frontend URL configurada: ${process.env.FRONTEND_URL || "http://localhost:3000"}`);
+  console.log(`🔌 Socket.IO disponible en: http://localhost:${PORT}/socket.io/`);
+  console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`🧪 Test Socket.IO: http://localhost:${PORT}/test-socket`);
+  
+  // Verificar que Socket.IO esté montado
+  console.log('🔧 Verificando Socket.IO...');
+  console.log('Socket.IO engine:', io.engine ? '✅ OK' : '❌ ERROR');
+  console.log('Socket.IO path:', io.path());
+  console.log('Socket.IO transports:', io.engine?.transports || 'unknown');
 });
 
 // Manejo de errores globales
