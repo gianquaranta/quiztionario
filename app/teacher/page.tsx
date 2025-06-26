@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Shield, Lock, Users, Play, Square, Trophy, Home, Copy } from "lucide-react"
+import { Shield, Lock, Users, Play, Square, Trophy, Home, Copy, Pause } from "lucide-react"
 import { useQuiz } from "@/lib/quiz-context"
 import { db, type Quiz, type QuizSession, type SessionParticipant } from "@/lib/supabase"
 
@@ -45,7 +45,7 @@ export default function TeacherPage() {
           className="absolute inset-0 opacity-10"
           style={{
             backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fillRule='evenodd'%3E%3Cg fill='%23475569' fillOpacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E\")",
+              "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fillRule='evenodd'%3E%3Cg fill='%23475569' fillOpacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
           }}
         />
 
@@ -262,13 +262,39 @@ function TeacherDashboard() {
     setQuestionActive(true)
     setResponses([])
 
+    console.log("🚀 Iniciando pregunta:", question.question_text)
+
     if (activeSession) {
-      emit("teacher-start-question", activeSession.session_code, question, startTime)
+      // Emitir a todos los estudiantes
+      emit("teacher-start-question", activeSession.session_code, {
+        question: question,
+        startTime: startTime,
+        sessionCode: activeSession.session_code,
+      })
+
+      console.log("📡 Pregunta enviada a estudiantes via Socket.IO")
     }
+
+    // Actualizar estado local
+    dispatch({
+      type: "SET_CURRENT_QUESTION",
+      payload: { question: question, startTime: startTime },
+    })
 
     if (activeSession) {
       db.startQuestion(activeSession.id, question.id).catch(console.error)
     }
+  }
+
+  const pauseQuestion = () => {
+    console.log("⏸️ Pausando pregunta")
+    setQuestionActive(false)
+
+    if (activeSession) {
+      emit("teacher-pause-question", activeSession.session_code)
+    }
+
+    dispatch({ type: "SET_QUESTION_ACTIVE", payload: false })
   }
 
   const awardPoints = async (participantId: string, points: number) => {
@@ -296,6 +322,9 @@ function TeacherDashboard() {
       setCurrentQuestion(null)
       setResponses([])
 
+      // Actualizar contexto
+      dispatch({ type: "SET_QUESTION_ACTIVE", payload: false })
+
       console.log(`🏆 Se otorgaron ${points} puntos al participante ${participantId}`)
     } catch (error) {
       console.error("❌ Error al otorgar puntos:", error)
@@ -303,6 +332,7 @@ function TeacherDashboard() {
   }
 
   const endQuestion = () => {
+    console.log("🛑 Terminando pregunta")
     setQuestionActive(false)
     setCurrentQuestion(null)
     setResponses([])
@@ -310,6 +340,8 @@ function TeacherDashboard() {
     if (activeSession) {
       emit("teacher-end-question", activeSession.session_code)
     }
+
+    dispatch({ type: "SET_QUESTION_ACTIVE", payload: false })
   }
 
   const endSession = async () => {
@@ -324,6 +356,8 @@ function TeacherDashboard() {
       setQuestionActive(false)
       setResponses([])
       setParticipants([])
+
+      dispatch({ type: "RESET_QUIZ" })
 
       console.log("🛑 Sesión terminada")
     } catch (error) {
@@ -522,7 +556,7 @@ function TeacherDashboard() {
                       🎯 <strong>Sesión Activa:</strong> {activeSession.quiz?.title}
                     </p>
                     <p className="text-green-600 text-sm">
-                      Código: <strong>{activeSession.session_code}</strong> •{participants.length} estudiantes
+                      Código: <strong>{activeSession.session_code}</strong> • {participants.length} estudiantes
                       conectados
                     </p>
                   </div>
@@ -714,6 +748,14 @@ function TeacherDashboard() {
                       ))}
 
                       <div className="flex gap-2 mt-4">
+                        <Button
+                          onClick={pauseQuestion}
+                          variant="outline"
+                          className="flex-1 border-orange-300 text-orange-700 hover:bg-orange-50"
+                        >
+                          <Pause className="w-4 h-4 mr-2" />
+                          Pausar Pregunta
+                        </Button>
                         <Button
                           onClick={endQuestion}
                           variant="outline"

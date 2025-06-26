@@ -25,6 +25,8 @@ interface QuizState {
   responses: Response[]
   currentQuestion: any
   questionActive: boolean
+  questionStartTime: number | null
+  currentSessionCode: string | null
   socket: Socket | null
   isConnected: boolean
 }
@@ -38,8 +40,9 @@ type QuizAction =
   | { type: "SET_STUDENTS"; payload: Student[] }
   | { type: "ADD_RESPONSE"; payload: Response }
   | { type: "CLEAR_RESPONSES" }
-  | { type: "SET_CURRENT_QUESTION"; payload: any }
+  | { type: "SET_CURRENT_QUESTION"; payload: { question: any; startTime: number } }
   | { type: "SET_QUESTION_ACTIVE"; payload: boolean }
+  | { type: "SET_SESSION_CODE"; payload: string | null }
   | { type: "RESET_QUIZ" }
 
 const initialState: QuizState = {
@@ -47,6 +50,8 @@ const initialState: QuizState = {
   responses: [],
   currentQuestion: null,
   questionActive: false,
+  questionStartTime: null,
+  currentSessionCode: null,
   socket: null,
   isConnected: false,
 }
@@ -85,9 +90,26 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
     case "CLEAR_RESPONSES":
       return { ...state, responses: [] }
     case "SET_CURRENT_QUESTION":
-      return { ...state, currentQuestion: action.payload }
+      return {
+        ...state,
+        currentQuestion: action.payload.question,
+        questionStartTime: action.payload.startTime,
+        questionActive: true,
+      }
     case "SET_QUESTION_ACTIVE":
+      if (!action.payload) {
+        // Si se desactiva la pregunta, limpiar todo
+        return {
+          ...state,
+          questionActive: false,
+          currentQuestion: null,
+          questionStartTime: null,
+          responses: [],
+        }
+      }
       return { ...state, questionActive: action.payload }
+    case "SET_SESSION_CODE":
+      return { ...state, currentSessionCode: action.payload }
     case "RESET_QUIZ":
       return { ...initialState, socket: state.socket, isConnected: state.isConnected }
     default:
@@ -152,17 +174,15 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     })
 
     // Eventos para estudiantes
-    socket.on("question-active", (question: any, startTime: number) => {
-      console.log("❓ Pregunta activa:", question)
-      dispatch({ type: "SET_CURRENT_QUESTION", payload: { ...question, startTime } })
-      dispatch({ type: "SET_QUESTION_ACTIVE", payload: true })
+    socket.on("question-started", (data: { question: any; startTime: number; sessionCode: string }) => {
+      console.log("❓ Pregunta iniciada:", data)
+      dispatch({ type: "SET_CURRENT_QUESTION", payload: { question: data.question, startTime: data.startTime } })
+      dispatch({ type: "SET_SESSION_CODE", payload: data.sessionCode })
     })
 
     socket.on("question-ended", () => {
       console.log("⏹️ Pregunta terminada")
       dispatch({ type: "SET_QUESTION_ACTIVE", payload: false })
-      dispatch({ type: "SET_CURRENT_QUESTION", payload: null })
-      dispatch({ type: "CLEAR_RESPONSES" })
     })
 
     socket.on("session-ended", () => {

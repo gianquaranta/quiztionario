@@ -60,55 +60,80 @@ export default function StudentPage() {
   }
 
   const respondToQuestion = async () => {
-    if (!state.questionStartTime || !currentParticipant) return
+    console.log("🔥 Intentando responder pregunta...")
+    console.log("Estado actual:", {
+      questionActive: state.questionActive,
+      currentQuestion: state.currentQuestion,
+      currentParticipant: currentParticipant,
+      hasResponded: hasResponded,
+      questionStartTime: state.questionStartTime,
+    })
 
-    const time = Date.now() - state.questionStartTime
+    if (!state.currentQuestion || !currentParticipant || hasResponded) {
+      console.log("❌ No se puede responder:", {
+        noQuestion: !state.currentQuestion,
+        noParticipant: !currentParticipant,
+        alreadyResponded: hasResponded,
+      })
+      return
+    }
+
+    // Calcular tiempo de respuesta
+    const questionStartTime = state.questionStartTime || Date.now()
+    const time = Date.now() - questionStartTime
+
+    console.log("⏱️ Tiempo de respuesta:", time, "ms")
+
     setResponseTime(time)
     setHasResponded(true)
 
     try {
-      if (state.currentQuestion) {
-        const response = await db.recordStudentResponse(
-          currentParticipant.session_id,
-          currentParticipant.id,
-          state.currentQuestion.id,
-          time,
-        )
+      const response = await db.recordStudentResponse(
+        currentParticipant.session_id,
+        currentParticipant.id,
+        state.currentQuestion.id,
+        time,
+      )
 
-        emit("student-response", state.currentSessionCode, {
-          participantId: currentParticipant.id,
-          responseTime: time,
-          participant: currentParticipant,
-          responseId: response.id,
-        })
+      console.log("💾 Respuesta guardada en BD:", response)
 
-        console.log("📤 Respuesta enviada desde estudiante:", {
-          participantId: currentParticipant.id,
-          responseTime: time,
-          sessionCode: state.currentSessionCode,
-        })
+      // Emitir respuesta al profesor
+      const responseData = {
+        participantId: currentParticipant.id,
+        responseTime: time,
+        participant: currentParticipant,
+        responseId: response.id,
+      }
 
-        const currentRank = state.responses.length + 1
-        setRank(currentRank)
+      emit("student-response", state.currentSessionCode, responseData)
 
-        if (currentRank <= 3) {
-          setShowCelebration(true)
-          setTimeout(() => setShowCelebration(false), 3000)
-        }
+      console.log("📤 Respuesta enviada al profesor:", responseData)
+
+      // Calcular ranking aproximado
+      const currentRank = state.responses.length + 1
+      setRank(currentRank)
+
+      if (currentRank <= 3) {
+        setShowCelebration(true)
+        setTimeout(() => setShowCelebration(false), 3000)
       }
     } catch (error) {
-      console.error("Error al registrar respuesta:", error)
+      console.error("❌ Error al registrar respuesta:", error)
+      setHasResponded(false) // Permitir intentar de nuevo
     }
   }
 
+  // Reset cuando hay nueva pregunta
   useEffect(() => {
     if (state.questionActive && state.currentQuestion) {
+      console.log("🆕 Nueva pregunta detectada, reseteando estado")
       setHasResponded(false)
       setResponseTime(null)
       setRank(null)
     }
   }, [state.questionActive, state.currentQuestion])
 
+  // Actualizar participante cuando cambie el estado
   useEffect(() => {
     if (currentParticipant) {
       const updatedParticipant = state.students.find((s) => s.id === currentParticipant.id)
@@ -325,6 +350,24 @@ export default function StudentPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Debug info - remover en producción */}
+            <Card className="mt-6 bg-yellow-50 border border-yellow-200">
+              <CardHeader>
+                <CardTitle className="text-yellow-800 text-sm">🐛 Debug Info</CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs text-yellow-700">
+                <p>Question Active: {state.questionActive ? "✅" : "❌"}</p>
+                <p>Current Question: {state.currentQuestion ? "✅" : "❌"}</p>
+                <p>Has Responded: {hasResponded ? "✅" : "❌"}</p>
+                <p>Current Participant: {currentParticipant ? "✅" : "❌"}</p>
+                <p>Socket Connected: {state.isConnected ? "✅" : "❌"}</p>
+                <p>
+                  Question Start Time:{" "}
+                  {state.questionStartTime ? new Date(state.questionStartTime).toLocaleTimeString() : "❌"}
+                </p>
+              </CardContent>
+            </Card>
 
             {/* Estadísticas del estudiante */}
             <Card className="mt-6 bg-white/80 backdrop-blur-lg border border-slate-200">
