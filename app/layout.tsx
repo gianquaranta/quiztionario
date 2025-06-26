@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "QuizMaster - Interactive Quiz Platform",
-  description: "Fun and engaging quiz platform for students and teachers",
+  description: "Real-time quiz platform for teachers and students",
     generator: 'v0.dev'
 }
 
