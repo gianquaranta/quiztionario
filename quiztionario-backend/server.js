@@ -10,9 +10,15 @@ const server = createServer(app);
 // Middleware para parsear JSON
 app.use(express.json());
 
+// Middleware para servir archivos estáticos si es necesario
+app.use(express.static('public'));
+
 // Middleware de logging para debug
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.path.includes('socket.io')) {
+    console.log('Socket.IO request detected:', req.headers);
+  }
   next();
 });
 
@@ -32,7 +38,8 @@ app.use(cors({
     // Verificar si el origin está en la lista permitida o es un preview de Vercel
     if (allowedOrigins.includes(origin) || 
         origin.includes('vercel.app') || 
-        origin.includes('localhost')) {
+        origin.includes('localhost') ||
+        origin.includes('koyeb.app')) {
       return callback(null, true);
     }
     
@@ -51,7 +58,8 @@ const io = new Server(server, {
       // Verificar si el origin está permitido
       if (allowedOrigins.includes(origin) || 
           origin.includes('vercel.app') || 
-          origin.includes('localhost')) {
+          origin.includes('localhost') ||
+          origin.includes('koyeb.app')) {
         return callback(null, true);
       }
       
@@ -63,7 +71,9 @@ const io = new Server(server, {
   transports: ['websocket', 'polling'],
   pingTimeout: 60000,
   pingInterval: 25000,
-  allowEIO3: true
+  allowEIO3: true,
+  path: '/socket.io/',
+  serveClient: true
 });
 
 // Almacenamiento en memoria para los quizzes (en producción usa una base de datos)
@@ -76,7 +86,25 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     activeQuizzes: activeQuizzes.size,
-    connectedUsers: io.sockets.sockets.size
+    connectedUsers: io.sockets.sockets.size,
+    socketIOPath: '/socket.io/',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Ruta para verificar Socket.IO específicamente
+app.get('/socket-status', (req, res) => {
+  res.json({
+    socketIO: {
+      status: 'initialized',
+      path: '/socket.io/',
+      transports: ['websocket', 'polling'],
+      connected: io.sockets.sockets.size,
+      cors: {
+        enabled: true,
+        origins: allowedOrigins
+      }
+    }
   });
 });
 
@@ -101,50 +129,120 @@ app.get('/test-socket', (req, res) => {
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Socket.IO Test</title>
+        <title>Socket.IO Test - Koyeb</title>
         <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+            .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+            .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+            .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+            #logs { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+            .log-entry { margin: 5px 0; padding: 5px; border-left: 3px solid #007bff; }
+            button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        </style>
     </head>
     <body>
-        <h1>Socket.IO Connection Test</h1>
-        <div id="status">Connecting...</div>
+        <h1>Socket.IO Connection Test - Koyeb Backend</h1>
+        <div class="info">
+            <p><strong>Server URL:</strong> ${req.protocol}://${req.get('host')}</p>
+            <p><strong>Socket.IO Path:</strong> /socket.io/</p>
+            <p><strong>Time:</strong> ${new Date().toISOString()}</p>
+        </div>
+        
+        <div id="status" class="status info">Ready to test...</div>
+        
         <button onclick="testConnection()">Test Connection</button>
+        <button onclick="disconnect()">Disconnect</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+        
+        <h3>Connection Logs:</h3>
         <div id="logs"></div>
         
         <script>
             let socket;
             
-            function addLog(message) {
+            function addLog(message, type = 'info') {
                 const div = document.createElement('div');
-                div.textContent = new Date().toLocaleTimeString() + ': ' + message;
-                document.getElementById('logs').appendChild(div);
+                div.className = 'log-entry';
+                div.innerHTML = '<strong>' + new Date().toLocaleTimeString() + ':</strong> ' + message;
+                if (type === 'error') div.style.borderLeftColor = '#dc3545';
+                if (type === 'success') div.style.borderLeftColor = '#28a745';
+                
+                const logs = document.getElementById('logs');
+                logs.appendChild(div);
+                logs.scrollTop = logs.scrollHeight;
                 console.log(message);
             }
             
-            function testConnection() {
+            function updateStatus(message, type = 'info') {
                 const status = document.getElementById('status');
-                status.textContent = 'Connecting...';
+                status.textContent = message;
+                status.className = 'status ' + type;
+            }
+            
+            function testConnection() {
+                if (socket) {
+                    socket.disconnect();
+                }
+                
+                updateStatus('Connecting...', 'info');
+                addLog('Attempting to connect to: ' + window.location.origin);
                 
                 socket = io(window.location.origin, {
-                    transports: ['websocket', 'polling']
+                    transports: ['websocket', 'polling'],
+                    timeout: 20000,
+                    forceNew: true
                 });
                 
                 socket.on('connect', () => {
-                    status.textContent = '✅ Connected: ' + socket.id;
-                    status.style.color = 'green';
-                    addLog('Connected successfully');
+                    updateStatus('✅ Connected: ' + socket.id, 'success');
+                    addLog('Connected successfully with ID: ' + socket.id, 'success');
+                    addLog('Transport: ' + socket.io.engine.transport.name, 'success');
                 });
                 
-                socket.on('disconnect', () => {
-                    status.textContent = '❌ Disconnected';
-                    status.style.color = 'red';
-                    addLog('Disconnected');
+                socket.on('disconnect', (reason) => {
+                    updateStatus('❌ Disconnected: ' + reason, 'error');
+                    addLog('Disconnected. Reason: ' + reason, 'error');
                 });
                 
                 socket.on('connect_error', (error) => {
-                    status.textContent = '❌ Error: ' + error.message;
-                    status.style.color = 'red';
-                    addLog('Connection error: ' + error.message);
+                    updateStatus('❌ Connection Error: ' + error.message, 'error');
+                    addLog('Connection error: ' + error.message, 'error');
+                    addLog('Error details: ' + JSON.stringify(error), 'error');
                 });
+                
+                socket.on('error', (error) => {
+                    addLog('Socket error: ' + error, 'error');
+                });
+                
+                // Test ping
+                socket.on('connect', () => {
+                    setTimeout(() => {
+                        if (socket.connected) {
+                            addLog('Testing ping...', 'info');
+                            const start = Date.now();
+                            socket.emit('ping', start);
+                        }
+                    }, 1000);
+                });
+                
+                socket.on('pong', (timestamp) => {
+                    const latency = Date.now() - timestamp;
+                    addLog('Pong received. Latency: ' + latency + 'ms', 'success');
+                });
+            }
+            
+            function disconnect() {
+                if (socket) {
+                    socket.disconnect();
+                    updateStatus('Manually disconnected', 'info');
+                    addLog('Manual disconnect requested', 'info');
+                }
+            }
+            
+            function clearLogs() {
+                document.getElementById('logs').innerHTML = '';
             }
             
             // Auto conectar al cargar
@@ -169,6 +267,11 @@ function calculateScore(timeLeft, maxTime = 30) {
 // Configuración de Socket.IO
 io.on('connection', (socket) => {
   console.log(`🔌 Usuario conectado: ${socket.id}`);
+
+  // Evento ping para testing
+  socket.on('ping', (timestamp) => {
+    socket.emit('pong', timestamp);
+  });
 
   // Evento: Crear nuevo quiz (profesor)
   socket.on('create-quiz', (quizData) => {

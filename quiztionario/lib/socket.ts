@@ -6,7 +6,7 @@ class SocketManager {
   private socket: Socket | null = null
   private isConnected = false
   private reconnectAttempts = 0
-  private maxReconnectAttempts = 5
+  private maxReconnectAttempts = 10
 
   connect() {
     if (this.socket?.connected) {
@@ -14,18 +14,24 @@ class SocketManager {
       return this.socket
     }
 
-    console.log("🔌 Connecting to Socket.IO server...")
+    console.log("🔌 Connecting to Socket.IO server:", SOCKET_SERVER_URL)
 
     this.socket = io(SOCKET_SERVER_URL, {
       transports: ["websocket", "polling"],
-      timeout: 10000,
+      timeout: 20000,
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      path: '/socket.io/',
+      forceNew: false,
+      upgrade: true,
+      rememberUpgrade: true
     })
 
     this.socket.on("connect", () => {
       console.log("✅ Socket connected successfully:", this.socket?.id)
+      console.log("Transport used:", this.socket?.io.engine.transport.name)
       this.isConnected = true
       this.reconnectAttempts = 0
     })
@@ -37,10 +43,12 @@ class SocketManager {
 
     this.socket.on("connect_error", (error) => {
       console.error("❌ Socket connection error:", error.message)
+      console.error("Error details:", error)
       this.reconnectAttempts++
 
       if (this.reconnectAttempts >= this.maxReconnectAttempts) {
         console.error("❌ Max reconnection attempts reached")
+        console.log("💡 Try refreshing the page or check server status")
       }
     })
 
