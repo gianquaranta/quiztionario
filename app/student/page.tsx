@@ -434,7 +434,7 @@ export default function StudentPage() {
               </Card>
             )}
 
-            {/* Enhanced Debug Panel */}
+            {/* Enhanced Debug Panel
             <Card className="mt-4 sm:mt-6 bg-yellow-50 border border-yellow-200">
               <CardHeader>
                 <CardTitle className="text-yellow-800 text-sm">🐛 Debug Info (DETALLADO)</CardTitle>
@@ -476,7 +476,7 @@ export default function StudentPage() {
                   <strong>Responses Count:</strong> {state.responses.length}
                 </p>
               </CardContent>
-            </Card>
+            </Card>*/}
 
             {/* Student stats */}
             <Card className="mt-4 sm:mt-6 bg-white/80 backdrop-blur-lg border border-slate-200">
