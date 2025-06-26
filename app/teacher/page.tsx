@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,6 +12,15 @@ import { useQuiz } from "@/lib/quiz-context"
 import { db, type Quiz, type QuizSession, type SessionParticipant } from "@/lib/supabase"
 
 const TEACHER_PIN = "187416"
+
+// Función para generar UUID válido
+function generateUUID() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c == "x" ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
 
 export default function TeacherPage() {
   const [pin, setPin] = useState("")
@@ -121,11 +129,18 @@ function TeacherDashboard() {
   const [responses, setResponses] = useState<any[]>([])
   const [participants, setParticipants] = useState<SessionParticipant[]>([])
   const [loading, setLoading] = useState(false)
-  const [teacherId] = useState("temp-teacher-id")
+  const [teacherId, setTeacherId] = useState<string>("")
+
+  // Inicializar o crear profesor temporal
+  useEffect(() => {
+    initializeTeacher()
+  }, [])
 
   useEffect(() => {
-    loadQuizzes()
-  }, [])
+    if (teacherId) {
+      loadQuizzes()
+    }
+  }, [teacherId])
 
   useEffect(() => {
     if (state.students.length > 0) {
@@ -140,10 +155,36 @@ function TeacherDashboard() {
     setCurrentQuestion(state.currentQuestion)
   }, [state])
 
+  const initializeTeacher = async () => {
+    try {
+      // Intentar obtener el profesor demo existente
+      let teacher = await db.getTeacherByEmail("demo@profesor.com")
+
+      if (!teacher) {
+        // Si no existe, crear un profesor demo
+        const tempId = generateUUID()
+        teacher = await db.createTeacher("demo@profesor.com", "Profesor Demo", "demo-hash")
+        console.log("✅ Profesor demo creado:", teacher.id)
+      }
+
+      setTeacherId(teacher.id)
+      console.log("👨‍🏫 Profesor inicializado:", teacher.id)
+    } catch (error) {
+      console.error("❌ Error al inicializar profesor:", error)
+      // Fallback: usar UUID generado localmente
+      const fallbackId = generateUUID()
+      setTeacherId(fallbackId)
+      console.log("🔄 Usando ID fallback:", fallbackId)
+    }
+  }
+
   const loadQuizzes = async () => {
+    if (!teacherId) return
+
     try {
       const existingQuizzes = await db.getTeacherQuizzes(teacherId)
       if (existingQuizzes.length === 0) {
+        // Crear quiz de ejemplo
         const sampleQuiz = await db.createQuiz(teacherId, "Quiz de Ejemplo", "Un quiz de prueba rápido")
         await db.addQuestionToQuiz(sampleQuiz.id, "¿Cuánto es 2 + 2?", 1, 0)
         await db.addQuestionToQuiz(sampleQuiz.id, "¿Cuál es la capital de Francia?", 2, 1)
@@ -151,17 +192,19 @@ function TeacherDashboard() {
 
         const updatedQuizzes = await db.getTeacherQuizzes(teacherId)
         setQuizzes(updatedQuizzes)
+        console.log("✅ Quiz de ejemplo creado")
       } else {
         setQuizzes(existingQuizzes)
+        console.log("✅ Quizzes cargados:", existingQuizzes.length)
       }
     } catch (error) {
-      console.error("Error al cargar quizzes:", error)
+      console.error("❌ Error al cargar quizzes:", error)
       setQuizzes([])
     }
   }
 
   const createQuiz = async () => {
-    if (!newQuiz.title || !newQuiz.questions[0].text) return
+    if (!newQuiz.title || !newQuiz.questions[0].text || !teacherId) return
 
     setLoading(true)
     try {
@@ -177,8 +220,9 @@ function TeacherDashboard() {
       await loadQuizzes()
       setNewQuiz({ title: "", description: "", questions: [{ text: "", maxPoints: 1 }] })
       setShowCreateQuiz(false)
+      console.log("✅ Quiz creado exitosamente")
     } catch (error) {
-      console.error("Error al crear quiz:", error)
+      console.error("❌ Error al crear quiz:", error)
       alert("Error al crear el quiz. Intenta nuevamente.")
     } finally {
       setLoading(false)
@@ -186,6 +230,8 @@ function TeacherDashboard() {
   }
 
   const startQuizSession = async (quiz: Quiz) => {
+    if (!teacherId) return
+
     setLoading(true)
     try {
       const session = await db.createQuizSession(teacherId, quiz.id)
@@ -195,7 +241,7 @@ function TeacherDashboard() {
 
       console.log(`🎯 Sesión de quiz iniciada! Código: ${session.session_code}`)
     } catch (error) {
-      console.error("Error al iniciar sesión:", error)
+      console.error("❌ Error al iniciar sesión:", error)
       alert("Error al iniciar la sesión. Intenta nuevamente.")
     } finally {
       setLoading(false)
@@ -239,7 +285,7 @@ function TeacherDashboard() {
 
       console.log(`🏆 Se otorgaron ${points} puntos al participante ${participantId}`)
     } catch (error) {
-      console.error("Error al otorgar puntos:", error)
+      console.error("❌ Error al otorgar puntos:", error)
     }
   }
 
@@ -268,7 +314,7 @@ function TeacherDashboard() {
 
       console.log("🛑 Sesión terminada")
     } catch (error) {
-      console.error("Error al terminar sesión:", error)
+      console.error("❌ Error al terminar sesión:", error)
     }
   }
 
@@ -280,6 +326,20 @@ function TeacherDashboard() {
   }
 
   const leaderboard = [...participants].sort((a, b) => b.total_points - a.total_points)
+
+  // Mostrar loading mientras se inicializa el profesor
+  if (!teacherId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 p-4 flex items-center justify-center">
+        <Card className="bg-white/90 backdrop-blur-lg border border-slate-300 shadow-xl">
+          <CardContent className="p-8 text-center">
+            <div className="animate-spin w-8 h-8 border-4 border-slate-300 border-t-slate-600 rounded-full mx-auto mb-4"></div>
+            <p className="text-slate-600">Inicializando panel docente...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (showCreateQuiz) {
     return (
