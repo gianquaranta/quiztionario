@@ -18,6 +18,48 @@ const allowedOrigins = [
   "https://quiztionario-*-gianquarantas-projects.vercel.app"
 ];
 
+// Configuración de Socket.IO PRIMERO - antes de cualquier middleware
+const io = new Server(server, {
+  cors: {
+    origin: function (origin, callback) {
+      console.log('🔍 Socket.IO CORS check for origin:', origin);
+      // Permitir requests sin origin
+      if (!origin) return callback(null, true);
+      
+      // Verificar si el origin está permitido
+      if (allowedOrigins.includes(origin) || 
+          origin.includes('vercel.app') || 
+          origin.includes('localhost') ||
+          origin.includes('koyeb.app')) {
+        console.log('✅ Socket.IO CORS allowed for:', origin);
+        return callback(null, true);
+      }
+      
+      console.log('❌ Socket.IO CORS blocked for:', origin);
+      callback(new Error('No permitido por CORS'));
+    },
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['polling', 'websocket'], // Polling primero para Koyeb
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  allowEIO3: true,
+  path: '/socket.io/',
+  serveClient: true,
+  cookie: false,
+  // Configuraciones específicas para proxies (Koyeb)
+  allowRequest: (req, fn) => {
+    console.log('🔍 Socket.IO allowRequest check:', req.url);
+    fn(null, true);
+  }
+});
+
+console.log('🔧 Socket.IO initialized with path: /socket.io/');
+
+// Configurar Express para confiar en proxies (importante para Koyeb)
+app.set('trust proxy', true);
+
 app.use(cors({
   origin: function (origin, callback) {
     console.log('🔍 CORS check for origin:', origin);
@@ -54,39 +96,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Configuración de Socket.IO con CORS - MOVER ANTES DE LAS RUTAS
-const io = new Server(server, {
-  cors: {
-    origin: function (origin, callback) {
-      console.log('🔍 Socket.IO CORS check for origin:', origin);
-      // Permitir requests sin origin
-      if (!origin) return callback(null, true);
-      
-      // Verificar si el origin está permitido
-      if (allowedOrigins.includes(origin) || 
-          origin.includes('vercel.app') || 
-          origin.includes('localhost') ||
-          origin.includes('koyeb.app')) {
-        console.log('✅ Socket.IO CORS allowed for:', origin);
-        return callback(null, true);
-      }
-      
-      console.log('❌ Socket.IO CORS blocked for:', origin);
-      callback(new Error('No permitido por CORS'));
-    },
-    methods: ["GET", "POST"],
-    credentials: true
-  },
-  transports: ['polling', 'websocket'], // Polling primero para Koyeb
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  allowEIO3: true,
-  path: '/socket.io/',
-  serveClient: true,
-  cookie: false
+// Middleware específico para debug de Socket.IO requests (ANTES de las rutas)
+app.use('/socket.io/*', (req, res, next) => {
+  console.log(`🔍 Socket.IO request: ${req.method} ${req.originalUrl}`);
+  console.log('Headers:', req.headers);
+  next();
 });
-
-console.log('🔧 Socket.IO initialized with path: /socket.io/');
 
 // Almacenamiento en memoria para los quizzes (en producción usa una base de datos)
 const activeQuizzes = new Map();
@@ -100,7 +115,26 @@ app.get('/health', (req, res) => {
     activeQuizzes: activeQuizzes.size,
     connectedUsers: io.sockets.sockets.size,
     socketIOPath: '/socket.io/',
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    socketIOEngine: io.engine ? 'available' : 'unavailable'
+  });
+});
+
+// Debug route para Socket.IO
+app.get('/socket.io-debug', (req, res) => {
+  res.json({
+    socketIO: {
+      initialized: !!io,
+      engine: !!io.engine,
+      path: io.path(),
+      transports: io.engine ? Object.keys(io.engine.transports) : [],
+      clientsCount: io.engine ? io.engine.clientsCount : 0,
+      generateId: typeof io.engine?.generateId === 'function' ? 'available' : 'unavailable'
+    },
+    server: {
+      address: server.address(),
+      listening: server.listening
+    }
   });
 });
 
@@ -134,13 +168,6 @@ app.get('/', (req, res) => {
       test: '/test-socket'
     }
   });
-});
-
-// Middleware para debug de Socket.IO requests
-app.use('/socket.io/*', (req, res, next) => {
-  console.log(`🔍 Socket.IO request: ${req.method} ${req.originalUrl}`);
-  console.log('Headers:', req.headers);
-  next();
 });
 
 // Ruta de prueba para Socket.IO

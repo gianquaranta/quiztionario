@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "debug": "node server-debug.js",
     "test": "node server.js",
-    "test-server": "node test-server.js"
+    "test-server": "node test-server.js",
+    "test-socketio": "node test-socketio.js"
   },
   "keywords": ["socket.io", "quiz", "real-time", "koyeb"],
   "author": "Tu nombre",

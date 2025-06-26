@@ -2,6 +2,12 @@ import { io, type Socket } from "socket.io-client"
 
 const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "http://localhost:3001"
 
+console.log("🔧 Socket configuration loaded:", {
+  SOCKET_SERVER_URL,
+  NODE_ENV: process.env.NODE_ENV,
+  path: "/socket.io/"
+});
+
 class SocketManager {
   private socket: Socket | null = null
   private isConnected = false
@@ -15,9 +21,10 @@ class SocketManager {
     }
 
     console.log("🔌 Connecting to Socket.IO server:", SOCKET_SERVER_URL)
+    console.log("🔧 Using path:", '/socket.io/')
 
     this.socket = io(SOCKET_SERVER_URL, {
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"], // Mismo orden que el servidor
       timeout: 20000,
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
