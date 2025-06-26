@@ -1,34 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Shield, Lock } from "lucide-react"
+import { Shield, Lock, Users, Play, Square, Trophy } from "lucide-react"
+import { useQuiz } from "@/lib/quiz-context"
+import { db, type Quiz, type QuizSession, type SessionParticipant } from "@/lib/supabase"
 
 const TEACHER_PIN = "187416"
-
-interface Quiz {
-  id: string
-  title: string
-  questions: Question[]
-}
-
-interface Question {
-  id: string
-  text: string
-  maxPoints: number
-}
-
-interface Student {
-  id: string
-  name: string
-  responseTime: number
-  points: number
-  isConnected: boolean
-}
 
 export default function TeacherPage() {
   const [pin, setPin] = useState("")
@@ -42,7 +24,6 @@ export default function TeacherPage() {
     } else {
       setShowError(true)
       setPin("")
-      // Add shake animation
       setTimeout(() => setShowError(false), 2000)
     }
   }
@@ -123,73 +104,188 @@ export default function TeacherPage() {
 }
 
 function TeacherDashboard() {
-  const [quizzes, setQuizzes] = useState([])
+  const { state, dispatch, emit } = useQuiz()
+  const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [showCreateQuiz, setShowCreateQuiz] = useState(false)
-  const [newQuiz, setNewQuiz] = useState({ title: "", questions: [{ text: "", maxPoints: 1 }] })
-  const [activeQuiz, setActiveQuiz] = useState(null)
-  const [currentQuestion, setCurrentQuestion] = useState(null)
+  const [newQuiz, setNewQuiz] = useState({ title: "", description: "", questions: [{ text: "", maxPoints: 1 }] })
+  const [activeSession, setActiveSession] = useState<QuizSession | null>(null)
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null)
   const [questionActive, setQuestionActive] = useState(false)
-  const [responses, setResponses] = useState([])
-  const [students, setStudents] = useState([
-    { id: "1", name: "Alice Johnson", responseTime: 0, points: 0, isConnected: true },
-    { id: "2", name: "Bob Smith", responseTime: 0, points: 0, isConnected: true },
-    { id: "3", name: "Charlie Brown", responseTime: 0, points: 0, isConnected: true },
-    { id: "4", name: "Diana Prince", responseTime: 0, points: 0, isConnected: true },
-    { id: "5", name: "Ethan Hunt", responseTime: 0, points: 0, isConnected: true },
-  ])
+  const [responses, setResponses] = useState<any[]>([])
+  const [participants, setParticipants] = useState<SessionParticipant[]>([])
+  const [loading, setLoading] = useState(false)
+  const [teacherId] = useState("temp-teacher-id") // In real app, get from auth
 
-  const createQuiz = () => {
-    if (newQuiz.title && newQuiz.questions[0].text) {
-      const quiz = {
-        id: Date.now().toString(),
-        title: newQuiz.title,
-        questions: newQuiz.questions.map((q, i) => ({
-          id: i.toString(),
-          text: q.text,
-          maxPoints: q.maxPoints,
-        })),
+  // Load teacher's quizzes on mount
+  useEffect(() => {
+    loadQuizzes()
+  }, [])
+
+  // Listen for real-time updates
+  useEffect(() => {
+    // Update participants from socket
+    if (state.students.length > 0) {
+      setParticipants(state.students)
+    }
+
+    // Update responses from socket
+    if (state.responses.length > 0) {
+      setResponses(state.responses)
+    }
+
+    // Update question state
+    setQuestionActive(state.questionActive)
+    setCurrentQuestion(state.currentQuestion)
+  }, [state])
+
+  const loadQuizzes = async () => {
+    try {
+      // For demo, we'll create some sample quizzes if none exist
+      const existingQuizzes = await db.getTeacherQuizzes(teacherId)
+      if (existingQuizzes.length === 0) {
+        // Create a sample quiz for testing
+        const sampleQuiz = await db.createQuiz(teacherId, "Sample Quiz", "A quick test quiz")
+        await db.addQuestionToQuiz(sampleQuiz.id, "What is 2 + 2?", 1, 0)
+        await db.addQuestionToQuiz(sampleQuiz.id, "What is the capital of France?", 2, 1)
+        await db.addQuestionToQuiz(sampleQuiz.id, "Name a programming language", 1, 2)
+
+        const updatedQuizzes = await db.getTeacherQuizzes(teacherId)
+        setQuizzes(updatedQuizzes)
+      } else {
+        setQuizzes(existingQuizzes)
       }
-      setQuizzes([...quizzes, quiz])
-      setNewQuiz({ title: "", questions: [{ text: "", maxPoints: 1 }] })
-      setShowCreateQuiz(false)
+    } catch (error) {
+      console.error("Error loading quizzes:", error)
+      // Fallback to local state if database fails
+      setQuizzes([])
     }
   }
 
-  const startQuestion = (question) => {
+  const createQuiz = async () => {
+    if (!newQuiz.title || !newQuiz.questions[0].text) return
+
+    setLoading(true)
+    try {
+      // Create quiz in database
+      const quiz = await db.createQuiz(teacherId, newQuiz.title, newQuiz.description)
+
+      // Add questions to quiz
+      for (let i = 0; i < newQuiz.questions.length; i++) {
+        const question = newQuiz.questions[i]
+        if (question.text.trim()) {
+          await db.addQuestionToQuiz(quiz.id, question.text, question.maxPoints, i)
+        }
+      }
+
+      // Reload quizzes
+      await loadQuizzes()
+
+      // Reset form
+      setNewQuiz({ title: "", description: "", questions: [{ text: "", maxPoints: 1 }] })
+      setShowCreateQuiz(false)
+    } catch (error) {
+      console.error("Error creating quiz:", error)
+      alert("Failed to create quiz. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const startQuizSession = async (quiz: Quiz) => {
+    setLoading(true)
+    try {
+      // Create session in database
+      const session = await db.createQuizSession(teacherId, quiz.id)
+      setActiveSession(session)
+
+      // Join socket room as teacher
+      emit("teacher-start-session", session.session_code, session.id)
+
+      console.log(`🎯 Quiz session started! Code: ${session.session_code}`)
+    } catch (error) {
+      console.error("Error starting session:", error)
+      alert("Failed to start session. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const startQuestion = (question: any) => {
+    const startTime = Date.now()
     setCurrentQuestion(question)
     setQuestionActive(true)
     setResponses([])
 
-    // Simulate real-time student responses
-    setTimeout(() => {
-      const shuffledStudents = [...students].sort(() => Math.random() - 0.5)
-      const responseStudents = shuffledStudents
-        .slice(0, Math.floor(Math.random() * 5) + 3)
-        .map((student, index) => ({
-          ...student,
-          responseTime: Math.random() * 3000 + 500,
-        }))
-        .sort((a, b) => a.responseTime - b.responseTime)
-      setResponses(responseStudents)
-    }, 1000)
+    // Emit to all students via socket
+    if (activeSession) {
+      emit("teacher-start-question", activeSession.session_code, question, startTime)
+    }
+
+    // Update database
+    if (activeSession) {
+      db.startQuestion(activeSession.id, question.id).catch(console.error)
+    }
   }
 
-  const awardPoints = (studentId, points) => {
-    setStudents((prev) =>
-      prev.map((student) => (student.id === studentId ? { ...student, points: student.points + points } : student)),
-    )
+  const awardPoints = async (participantId: string, points: number) => {
+    try {
+      // Find the response for this participant
+      const response = responses.find((r) => r.participant?.id === participantId)
+      if (response && response.id) {
+        const rank = responses.findIndex((r) => r.participant?.id === participantId) + 1
+        await db.awardPoints(response.id, points, rank)
+      }
 
-    // Fun celebration effect
-    console.log(`🎉 ${points} points awarded!`)
+      // Update participant points in real-time
+      const updatedParticipants = participants.map((p) =>
+        p.id === participantId ? { ...p, total_points: p.total_points + points } : p,
+      )
+      setParticipants(updatedParticipants)
+
+      // Emit to all clients
+      if (activeSession) {
+        const participant = participants.find((p) => p.id === participantId)
+        if (participant) {
+          emit("teacher-award-points", activeSession.session_code, participantId, participant.total_points + points)
+        }
+      }
+
+      console.log(`🏆 Awarded ${points} points to participant ${participantId}`)
+    } catch (error) {
+      console.error("Error awarding points:", error)
+    }
   }
 
   const endQuestion = () => {
     setQuestionActive(false)
     setCurrentQuestion(null)
     setResponses([])
+
+    if (activeSession) {
+      emit("teacher-end-question", activeSession.session_code)
+    }
   }
 
-  const finalRankings = [...students].sort((a, b) => b.points - a.points).filter((s) => s.points > 0)
+  const endSession = async () => {
+    if (!activeSession) return
+
+    try {
+      await db.endSession(activeSession.id)
+      emit("teacher-end-session", activeSession.session_code)
+
+      setActiveSession(null)
+      setCurrentQuestion(null)
+      setQuestionActive(false)
+      setResponses([])
+      setParticipants([])
+
+      console.log("🛑 Session ended")
+    } catch (error) {
+      console.error("Error ending session:", error)
+    }
+  }
+
+  const leaderboard = [...participants].sort((a, b) => b.total_points - a.total_points)
 
   if (showCreateQuiz) {
     return (
@@ -212,6 +308,19 @@ function TeacherDashboard() {
                   value={newQuiz.title}
                   onChange={(e) => setNewQuiz({ ...newQuiz, title: e.target.value })}
                   placeholder="Enter an awesome quiz title"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="description" className="text-white">
+                  Description (Optional)
+                </Label>
+                <Input
+                  id="description"
+                  value={newQuiz.description}
+                  onChange={(e) => setNewQuiz({ ...newQuiz, description: e.target.value })}
+                  placeholder="Brief description of your quiz"
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                 />
               </div>
@@ -264,9 +373,10 @@ function TeacherDashboard() {
               <div className="flex gap-2">
                 <Button
                   onClick={createQuiz}
+                  disabled={loading}
                   className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
                 >
-                  🚀 Create Quiz
+                  {loading ? "Creating..." : "🚀 Create Quiz"}
                 </Button>
                 <Button
                   onClick={() => setShowCreateQuiz(false)}
@@ -290,11 +400,28 @@ function TeacherDashboard() {
           <div>
             <h1 className="text-4xl font-bold text-white">🎓 Teacher Command Center</h1>
             <p className="text-white/70 text-lg">Control the quiz universe from here!</p>
+            {activeSession && (
+              <div className="mt-2 flex items-center gap-4">
+                <div className="bg-green-500/20 text-green-300 px-4 py-2 rounded-full font-bold text-lg">
+                  📡 Session Code: {activeSession.session_code}
+                </div>
+                <div className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm">
+                  <Users className="w-4 h-4 inline mr-1" />
+                  {participants.length} Students Connected
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
-            <div className="bg-green-500/20 text-green-300 px-3 py-1 rounded-full text-sm">
-              🟢 {students.filter((s) => s.isConnected).length} Students Online
-            </div>
+            {activeSession && (
+              <Button
+                onClick={endSession}
+                variant="outline"
+                className="border-red-400/20 text-red-300 hover:bg-red-500/10"
+              >
+                🛑 End Session
+              </Button>
+            )}
             <Button
               variant="outline"
               className="border-white/20 text-white hover:bg-white/10"
@@ -334,19 +461,21 @@ function TeacherDashboard() {
                       >
                         <div>
                           <h3 className="font-medium text-white text-lg">{quiz.title}</h3>
-                          <p className="text-white/60">{quiz.questions.length} questions • Ready to launch!</p>
+                          <p className="text-white/60">
+                            {quiz.questions?.length || 0} questions • {quiz.description || "Ready to launch!"}
+                          </p>
                         </div>
                         <Button
-                          onClick={() => setActiveQuiz(quiz)}
+                          onClick={() => startQuizSession(quiz)}
                           size="sm"
-                          disabled={activeQuiz?.id === quiz.id}
+                          disabled={loading || activeSession?.quiz?.id === quiz.id}
                           className={
-                            activeQuiz?.id === quiz.id
+                            activeSession?.quiz?.id === quiz.id
                               ? "bg-green-500"
                               : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
                           }
                         >
-                          {activeQuiz?.id === quiz.id ? "🔥 Active" : "🚀 Launch"}
+                          {activeSession?.quiz?.id === quiz.id ? "🔥 Active" : loading ? "Starting..." : "🚀 Launch"}
                         </Button>
                       </div>
                     ))}
@@ -356,25 +485,25 @@ function TeacherDashboard() {
             </Card>
 
             {/* Active Quiz Control */}
-            {activeQuiz && (
+            {activeSession && activeSession.quiz && (
               <Card className="bg-white/10 backdrop-blur-lg border border-white/20">
                 <CardHeader>
                   <CardTitle className="text-white text-xl flex items-center gap-2">
-                    🎮 Active Quiz: {activeQuiz.title}
+                    🎮 Active Quiz: {activeSession.quiz.title}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {activeQuiz.questions.map((question) => (
+                    {activeSession.quiz.questions?.map((question) => (
                       <div
                         key={question.id}
                         className="flex items-center justify-between p-4 border border-white/20 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
                       >
                         <div className="flex-1">
-                          <p className="font-medium text-white">{question.text}</p>
+                          <p className="font-medium text-white">{question.question_text}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded text-sm">
-                              🏆 Max {question.maxPoints} points
+                              🏆 Max {question.max_points} points
                             </span>
                           </div>
                         </div>
@@ -384,7 +513,8 @@ function TeacherDashboard() {
                           size="sm"
                           className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
                         >
-                          ⚡ Ask Question
+                          <Play className="w-4 h-4 mr-1" />
+                          Ask Question
                         </Button>
                       </div>
                     ))}
@@ -398,7 +528,7 @@ function TeacherDashboard() {
               <Card className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-lg border border-green-300/30">
                 <CardHeader>
                   <CardTitle className="text-white text-xl flex items-center gap-2">⚡ Live Question Results</CardTitle>
-                  <CardDescription className="text-white/80 text-lg">{currentQuestion.text}</CardDescription>
+                  <CardDescription className="text-white/80 text-lg">{currentQuestion.question_text}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {responses.length === 0 ? (
@@ -408,9 +538,9 @@ function TeacherDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {responses.slice(0, 10).map((student, index) => (
+                      {responses.slice(0, 10).map((response, index) => (
                         <div
-                          key={student.id}
+                          key={response.id || index}
                           className="flex items-center justify-between p-4 border border-white/20 rounded-lg bg-white/10"
                         >
                           <div className="flex items-center gap-4">
@@ -428,23 +558,26 @@ function TeacherDashboard() {
                               {index + 1}
                             </div>
                             <div>
-                              <p className="font-medium text-white text-lg">{student.name}</p>
-                              <p className="text-white/60">⚡ {(student.responseTime / 1000).toFixed(2)}s</p>
+                              <p className="font-medium text-white text-lg">
+                                {response.participant?.student_name || "Unknown Student"}
+                              </p>
+                              <p className="text-white/60">⚡ {(response.responseTime / 1000).toFixed(2)}s</p>
                             </div>
                             {index < 3 && (
                               <span className="text-2xl">{index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}</span>
                             )}
                           </div>
                           <div className="flex gap-2">
-                            {[1, 2, 3].slice(0, currentQuestion.maxPoints).map((points) => (
+                            {[1, 2, 3].slice(0, currentQuestion.max_points).map((points) => (
                               <Button
                                 key={points}
                                 size="sm"
                                 variant="outline"
-                                onClick={() => awardPoints(student.id, points)}
+                                onClick={() => awardPoints(response.participant?.id, points)}
                                 className="border-white/20 text-white hover:bg-white/10"
                               >
-                                🏆 {points} pt{points > 1 ? "s" : ""}
+                                <Trophy className="w-3 h-3 mr-1" />
+                                {points} pt{points > 1 ? "s" : ""}
                               </Button>
                             ))}
                           </div>
@@ -454,7 +587,8 @@ function TeacherDashboard() {
                         onClick={endQuestion}
                         className="w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
                       >
-                        🏁 End Question
+                        <Square className="w-4 h-4 mr-2" />
+                        End Question
                       </Button>
                     </div>
                   )}
@@ -463,22 +597,22 @@ function TeacherDashboard() {
             )}
           </div>
 
-          {/* Student Rankings */}
+          {/* Student Rankings & Participants */}
           <div>
             <Card className="bg-white/10 backdrop-blur-lg border border-white/20">
               <CardHeader>
                 <CardTitle className="text-white text-xl flex items-center gap-2">🏆 Leaderboard</CardTitle>
               </CardHeader>
               <CardContent>
-                {finalRankings.length === 0 ? (
+                {leaderboard.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-white/70">🎯 No champions yet - start awarding points!</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {finalRankings.map((student, index) => (
+                    {leaderboard.map((participant, index) => (
                       <div
-                        key={student.id}
+                        key={participant.id}
                         className="flex items-center justify-between p-3 border border-white/20 rounded-lg bg-white/5"
                       >
                         <div className="flex items-center gap-3">
@@ -496,12 +630,12 @@ function TeacherDashboard() {
                             {index + 1}
                           </div>
                           <div>
-                            <p className="font-medium text-white">{student.name}</p>
+                            <p className="font-medium text-white">{participant.student_name}</p>
                             {index === 0 && <span className="text-yellow-400 text-sm">👑 Quiz Champion!</span>}
                           </div>
                         </div>
                         <div className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full font-bold">
-                          {student.points} pts
+                          {participant.total_points} pts
                         </div>
                       </div>
                     ))}
@@ -512,22 +646,31 @@ function TeacherDashboard() {
 
             <Card className="mt-6 bg-white/10 backdrop-blur-lg border border-white/20">
               <CardHeader>
-                <CardTitle className="text-white text-xl flex items-center gap-2">👥 All Students</CardTitle>
+                <CardTitle className="text-white text-xl flex items-center gap-2">👥 All Participants</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {students.map((student) => (
-                    <div key={student.id} className="flex items-center justify-between p-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${student.isConnected ? "bg-green-400" : "bg-red-400"}`}
-                        ></div>
-                        <span className="text-white">{student.name}</span>
+                {participants.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-white/70">👋 Waiting for students to join...</p>
+                    {activeSession && (
+                      <p className="text-white/50 text-sm mt-2">Share code: {activeSession.session_code}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {participants.map((participant) => (
+                      <div key={participant.id} className="flex items-center justify-between p-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                          <span className="text-white">{participant.student_name}</span>
+                        </div>
+                        <div className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-xs">
+                          {participant.total_points} pts
+                        </div>
                       </div>
-                      <div className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-xs">{student.points} pts</div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

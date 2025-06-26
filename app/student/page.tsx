@@ -6,61 +6,99 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Zap, Star } from "lucide-react"
+import { Zap, Star, Users } from "lucide-react"
 import Link from "next/link"
 import { useQuiz } from "@/lib/quiz-context"
+import { db, type SessionParticipant } from "@/lib/supabase"
 
 export default function StudentPage() {
-  const { state, dispatch } = useQuiz()
+  const { state, dispatch, emit } = useQuiz()
   const [studentName, setStudentName] = useState("")
-  const [studentId, setStudentId] = useState("")
+  const [sessionCode, setSessionCode] = useState("")
+  const [currentParticipant, setCurrentParticipant] = useState<SessionParticipant | null>(null)
   const [isJoined, setIsJoined] = useState(false)
   const [hasResponded, setHasResponded] = useState(false)
   const [responseTime, setResponseTime] = useState<number | null>(null)
   const [rank, setRank] = useState<number | null>(null)
-  const [totalPoints, setTotalPoints] = useState(0)
   const [showCelebration, setShowCelebration] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
-  const currentStudent = state.students.find((s) => s.id === studentId)
-  const leaderboard = [...state.students].sort((a, b) => b.points - a.points).filter((s) => s.points > 0)
+  const leaderboard = [...state.students]
+    .sort((a, b) => b.total_points - a.total_points)
+    .filter((s) => s.total_points > 0)
 
-  const joinQuiz = () => {
-    if (studentName.trim()) {
-      const newStudentId = Date.now().toString()
-      setStudentId(newStudentId)
-      dispatch({
-        type: "ADD_STUDENT",
-        payload: {
-          id: newStudentId,
-          name: studentName,
-          points: 0,
-          isConnected: true,
-        },
-      })
+  const joinQuiz = async () => {
+    if (!studentName.trim() || !sessionCode.trim()) {
+      setError("Please enter both your name and session code")
+      return
+    }
+
+    setLoading(true)
+    setError("")
+
+    try {
+      // Check if session exists
+      const session = await db.getSessionByCode(sessionCode.toUpperCase())
+      if (!session) {
+        setError("Session not found. Please check the code and try again.")
+        return
+      }
+
+      // Join the session
+      const participant = await db.joinSession(session.id, studentName)
+      setCurrentParticipant(participant)
       setIsJoined(true)
+
+      // Join socket room
+      emit("student-join-session", sessionCode.toUpperCase(), participant)
+
+      console.log("🎓 Successfully joined session:", sessionCode.toUpperCase())
+    } catch (error) {
+      console.error("Error joining session:", error)
+      setError("Failed to join session. Please try again.")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const respondToQuestion = () => {
-    if (state.questionStartTime) {
-      const time = Date.now() - state.questionStartTime
-      setResponseTime(time)
-      setHasResponded(true)
+  const respondToQuestion = async () => {
+    if (!state.questionStartTime || !currentParticipant) return
 
-      dispatch({
-        type: "STUDENT_RESPONSE",
-        payload: { studentId, responseTime: time },
-      })
+    const time = Date.now() - state.questionStartTime
+    setResponseTime(time)
+    setHasResponded(true)
 
-      // Calculate rank
-      const currentRank = state.responses.findIndex((r) => r.studentId === studentId) + 1
-      setRank(currentRank)
+    try {
+      // Record response in database
+      if (state.currentQuestion) {
+        const response = await db.recordStudentResponse(
+          currentParticipant.session_id,
+          currentParticipant.id,
+          state.currentQuestion.id,
+          time,
+        )
 
-      // Show celebration for top 3
-      if (currentRank <= 3) {
-        setShowCelebration(true)
-        setTimeout(() => setShowCelebration(false), 3000)
+        // Emit to teacher via socket
+        emit("student-response", state.currentSessionCode, {
+          participantId: currentParticipant.id,
+          responseTime: time,
+          participant: currentParticipant,
+          responseId: response.id,
+        })
+
+        // Calculate rank based on current responses
+        const currentRank = state.responses.length + 1
+        setRank(currentRank)
+
+        // Show celebration for top 3
+        if (currentRank <= 3) {
+          setShowCelebration(true)
+          setTimeout(() => setShowCelebration(false), 3000)
+        }
       }
+    } catch (error) {
+      console.error("Error recording response:", error)
     }
   }
 
@@ -73,12 +111,15 @@ export default function StudentPage() {
     }
   }, [state.questionActive, state.currentQuestion])
 
-  // Update total points
+  // Update participant points when awarded
   useEffect(() => {
-    if (currentStudent) {
-      setTotalPoints(currentStudent.points)
+    if (currentParticipant) {
+      const updatedParticipant = state.students.find((s) => s.id === currentParticipant.id)
+      if (updatedParticipant) {
+        setCurrentParticipant(updatedParticipant)
+      }
     }
-  }, [currentStudent])
+  }, [state.students, currentParticipant])
 
   if (!isJoined) {
     return (
@@ -96,7 +137,7 @@ export default function StudentPage() {
                 <Star className="w-10 h-10 text-white" />
               </div>
               <CardTitle className="text-3xl text-white">🎮 Join the Quiz Battle!</CardTitle>
-              <CardDescription className="text-white/80 text-lg">Enter your name and show your skills!</CardDescription>
+              <CardDescription className="text-white/80 text-lg">Enter your name and session code!</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
@@ -109,16 +150,37 @@ export default function StudentPage() {
                   onChange={(e) => setStudentName(e.target.value)}
                   placeholder="Enter your superhero name"
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-lg h-12"
-                  onKeyPress={(e) => e.key === "Enter" && joinQuiz()}
                 />
               </div>
+
+              <div>
+                <Label htmlFor="code" className="text-white text-lg">
+                  Session Code
+                </Label>
+                <Input
+                  id="code"
+                  value={sessionCode}
+                  onChange={(e) => setSessionCode(e.target.value.toUpperCase())}
+                  placeholder="Enter 6-digit code"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-lg h-12 text-center font-mono"
+                  maxLength={6}
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-3">
+                  <p className="text-red-300 text-sm">❌ {error}</p>
+                </div>
+              )}
+
               <Button
                 onClick={joinQuiz}
+                disabled={loading || !studentName.trim() || !sessionCode.trim()}
                 className="w-full h-14 text-xl font-bold bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 shadow-lg hover:shadow-xl transition-all duration-300"
-                disabled={!studentName.trim()}
               >
-                🚀 Join the Adventure!
+                {loading ? "Joining..." : "🚀 Join the Adventure!"}
               </Button>
+
               <Link href="/">
                 <Button variant="ghost" className="w-full text-white/70 hover:text-white hover:bg-white/10">
                   ← Back to Home
@@ -167,10 +229,15 @@ export default function StudentPage() {
           <div>
             <h1 className="text-3xl font-bold text-white">🌟 Hey {studentName}!</h1>
             <p className="text-white/80 text-lg">Ready to dominate this quiz? 💪</p>
+            {state.currentSessionCode && <p className="text-white/60">Session: {state.currentSessionCode}</p>}
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-yellow-500/20 text-yellow-300 px-4 py-2 rounded-full text-lg font-bold">
-              🏆 {totalPoints} points
+              🏆 {currentParticipant?.total_points || 0} points
+            </div>
+            <div className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm">
+              <Users className="w-4 h-4 inline mr-1" />
+              {state.students.length} players
             </div>
             <Link href="/">
               <Button variant="outline" className="border-white/20 text-white hover:bg-white/10">
@@ -192,7 +259,7 @@ export default function StudentPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="text-2xl font-bold text-white p-6 bg-white/10 rounded-lg border border-white/20 text-center">
-                    {state.currentQuestion.text}
+                    {state.currentQuestion.question_text}
                   </div>
 
                   {!hasResponded ? (
@@ -244,7 +311,11 @@ export default function StudentPage() {
                   <p className="text-white/70 text-lg">Questions can drop at any moment... Stay alert! ⚡</p>
                   <div className="mt-6 flex justify-center gap-4">
                     <div className="bg-blue-500/20 text-blue-300 px-4 py-2 rounded-full">🎮 Game Mode: ON</div>
-                    <div className="bg-green-500/20 text-green-300 px-4 py-2 rounded-full">🟢 Connected</div>
+                    <div
+                      className={`px-4 py-2 rounded-full ${state.isConnected ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}
+                    >
+                      {state.isConnected ? "🟢 Connected" : "🔴 Disconnected"}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -258,12 +329,12 @@ export default function StudentPage() {
               <CardContent>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-blue-500/20 p-4 rounded-lg">
-                    <p className="text-3xl font-bold text-blue-300">{totalPoints}</p>
+                    <p className="text-3xl font-bold text-blue-300">{currentParticipant?.total_points || 0}</p>
                     <p className="text-white/70">Total Points 🏆</p>
                   </div>
                   <div className="bg-green-500/20 p-4 rounded-lg">
                     <p className="text-3xl font-bold text-green-300">
-                      {leaderboard.findIndex((s) => s.name === studentName) + 1 || "-"}
+                      {leaderboard.findIndex((s) => s.student_name === studentName) + 1 || "-"}
                     </p>
                     <p className="text-white/70">Current Rank 📈</p>
                   </div>
@@ -296,7 +367,7 @@ export default function StudentPage() {
                       <div
                         key={student.id}
                         className={`flex items-center justify-between p-4 rounded-lg border transition-all ${
-                          student.name === studentName
+                          student.student_name === studentName
                             ? "bg-yellow-500/20 border-yellow-400/50 shadow-lg"
                             : "bg-white/5 border-white/20"
                         }`}
@@ -317,15 +388,15 @@ export default function StudentPage() {
                           </div>
                           <div>
                             <p
-                              className={`font-bold ${student.name === studentName ? "text-yellow-300" : "text-white"}`}
+                              className={`font-bold ${student.student_name === studentName ? "text-yellow-300" : "text-white"}`}
                             >
-                              {student.name === studentName ? "🌟 YOU 🌟" : student.name}
+                              {student.student_name === studentName ? "🌟 YOU 🌟" : student.student_name}
                             </p>
                             {index === 0 && <p className="text-yellow-400 text-sm">Quiz Champion! 🏆</p>}
                           </div>
                         </div>
                         <div className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full font-bold">
-                          {student.points} pts
+                          {student.total_points} pts
                         </div>
                       </div>
                     ))}
@@ -343,16 +414,16 @@ export default function StudentPage() {
                   {state.students.map((student) => (
                     <div key={student.id} className="flex items-center justify-between p-2 text-sm">
                       <div className="flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${student.isConnected ? "bg-green-400" : "bg-red-400"}`}
-                        ></div>
+                        <div className="w-2 h-2 rounded-full bg-green-400"></div>
                         <span
-                          className={`${student.name === studentName ? "text-yellow-300 font-bold" : "text-white"}`}
+                          className={`${student.student_name === studentName ? "text-yellow-300 font-bold" : "text-white"}`}
                         >
-                          {student.name === studentName ? "⭐ " + student.name : student.name}
+                          {student.student_name === studentName ? "⭐ " + student.student_name : student.student_name}
                         </span>
                       </div>
-                      <div className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-xs">{student.points} pts</div>
+                      <div className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-xs">
+                        {student.total_points} pts
+                      </div>
                     </div>
                   ))}
                 </div>
