@@ -30,7 +30,7 @@ export default function StudentPage() {
 
   const joinQuiz = async () => {
     if (!studentName.trim() || !sessionCode.trim()) {
-      setError("Por favor ingresa tu nombre y el código de sesión")
+      setError("Por favor ingresá tu nombre y el código de sesión")
       return
     }
 
@@ -42,7 +42,7 @@ export default function StudentPage() {
 
       const session = await db.getSessionByCode(sessionCode.toUpperCase())
       if (!session) {
-        setError("Sesión no encontrada. Verifica el código e intenta nuevamente.")
+        setError("Sesión no encontrada. Verificá el código e intentá nuevamente.")
         return
       }
 
@@ -53,17 +53,29 @@ export default function StudentPage() {
       console.log("📤 EMITTING STUDENT JOIN EVENT...")
       emit("student-join-session", sessionCode.toUpperCase(), participant)
 
-      // Solicitar lista actualizada de participantes
-      emit("request-participants", sessionCode.toUpperCase())
-
       console.log("✅ STUDENT SUCCESSFULLY JOINED SESSION:", sessionCode.toUpperCase())
+      
+      // NUEVO: Forzar solicitud de lista de participantes
+      console.log("🔄 REQUESTING PARTICIPANTS LIST...")
+      emit("request-participants", sessionCode.toUpperCase())
+      
+      // Debug: Log current students after joining
+      setTimeout(() => {
+        console.log("🔍 STUDENTS IN STATE AFTER JOIN:", state.students.map(s => s.student_name))
+      }, 2000)
     } catch (error) {
       console.error("❌ ERROR JOINING SESSION:", error)
-      setError("No se pudo unir a la sesión. Intenta nuevamente.")
+      setError("No se pudo unir a la sesión. Intentá nuevamente.")
     } finally {
       setLoading(false)
     }
   }
+
+  // NUEVO: Debug cuando cambia la lista de estudiantes
+  useEffect(() => {
+    console.log("👥 🎯 STUDENT LIST CHANGED:", state.students.length, "students")
+    console.log("👥 🎯 Student names:", state.students.map(s => s.student_name))
+  }, [state.students])
 
   const respondToQuestion = async () => {
     console.log("🔥 STUDENT ATTEMPTING TO RESPOND...")
@@ -175,9 +187,9 @@ export default function StudentPage() {
               <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center animate-bounce shadow-lg">
                 <Star className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
               </div>
-              <CardTitle className="text-2xl sm:text-3xl text-slate-800">🎮 ¡Únete a Quiztionario!</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl text-slate-800">🎮 ¡Unite a Quiztionario!</CardTitle>
               <CardDescription className="text-slate-600 text-base sm:text-lg">
-                Ingresa tu nombre y el código de sesión
+                Ingresá tu nombre y el código de sesión
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 sm:space-y-6">
@@ -189,7 +201,7 @@ export default function StudentPage() {
                   id="name"
                   value={studentName}
                   onChange={(e) => setStudentName(e.target.value)}
-                  placeholder="Ingresa tu nombre"
+                  placeholder="Ingresá tu nombre"
                   className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 text-base sm:text-lg h-12 focus:border-blue-500"
                 />
               </div>
@@ -206,7 +218,7 @@ export default function StudentPage() {
                   className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 text-base sm:text-lg h-12 text-center font-mono focus:border-blue-500"
                   maxLength={6}
                 />
-                <p className="text-slate-500 text-sm mt-1">Tu profesor te dará este código</p>
+                <p className="text-slate-500 text-sm mt-1">Tu profesor te va a dar este código</p>
               </div>
 
               {error && (
@@ -220,7 +232,7 @@ export default function StudentPage() {
                 disabled={loading || !studentName.trim() || !sessionCode.trim()}
                 className="w-full h-12 sm:h-14 text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                {loading ? "Uniéndose..." : "🚀 ¡Unirse a Quiztionario!"}
+                {loading ? "Uniéndome..." : "🚀 ¡Unirme a Quiztionario!"}
               </Button>
 
               <Link href="/">

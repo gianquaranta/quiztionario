@@ -65,9 +65,20 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
       return { ...state, isConnected: action.payload }
     case "ADD_STUDENT":
       console.log("🎯 ADDING STUDENT TO STATE:", action.payload.student_name)
+      // Evitar duplicados al agregar estudiante
+      const existingStudent = state.students.find(s => s.id === action.payload.id)
+      if (existingStudent) {
+        console.log("⚠️ Student already exists, updating instead of adding")
+        return {
+          ...state,
+          students: state.students.map(s => 
+            s.id === action.payload.id ? action.payload : s
+          ),
+        }
+      }
       return {
         ...state,
-        students: [...state.students.filter((s) => s.id !== action.payload.id), action.payload],
+        students: [...state.students, action.payload],
       }
     case "REMOVE_STUDENT":
       console.log("👋 REMOVING STUDENT FROM STATE:", action.payload)
@@ -86,12 +97,13 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
     case "SET_STUDENTS":
       return { ...state, students: action.payload }
     case "SET_PARTICIPANTS_LIST":
-      console.log("📋 SETTING COMPLETE PARTICIPANTS LIST:", action.payload.length, "participants")
-      console.log(
-        "📋 Participants received:",
-        action.payload.map((p) => p.student_name),
-      )
-      return { ...state, students: action.payload }
+      console.log("📋 🎯 SETTING COMPLETE PARTICIPANTS LIST:", action.payload.length, "participants")
+      console.log("📋 🎯 Participants received:", action.payload.map(p => p.student_name))
+      console.log("📋 🎯 Old participants:", state.students.map(s => s.student_name))
+      // Reemplazar completamente la lista de estudiantes
+      const newState = { ...state, students: action.payload }
+      console.log("📋 🎯 New participants after update:", newState.students.map(s => s.student_name))
+      return newState
     case "ADD_RESPONSE":
       console.log("📨 ADDING RESPONSE TO STATE:", action.payload.participant?.student_name)
       return {
@@ -169,21 +181,24 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
       console.error("🚨 SOCKET ERROR:", error)
     })
 
+    // NUEVO: Manejar lista completa de participantes (PRIORITARIO)
+    socket.on("participants-list", (participants: Student[]) => {
+      console.log("� 🎯 PARTICIPANTS LIST RECEIVED:", participants.length, "participants")
+      console.log("📋 🎯 Current participants names:", participants.map(p => p.student_name))
+      console.log("� 🎯 Current state students before update:", state.students.map(s => s.student_name))
+      dispatch({ type: "SET_PARTICIPANTS_LIST", payload: participants })
+    })
+
     // Events for teacher
     socket.on("student-joined", (participant: Student) => {
-      console.log("👥 STUDENT JOINED EVENT RECEIVED:", participant.student_name)
+      console.log("� STUDENT JOINED EVENT RECEIVED:", participant.student_name)
+      console.log("👥 Current students in state:", state.students.map(s => s.student_name))
       dispatch({ type: "ADD_STUDENT", payload: participant })
     })
 
     socket.on("student-left", (participant: Student) => {
       console.log("👋 STUDENT LEFT EVENT RECEIVED:", participant.student_name)
       dispatch({ type: "REMOVE_STUDENT", payload: participant.id })
-    })
-
-    // NUEVO: Manejar lista completa de participantes
-    socket.on("participants-list", (participants: Student[]) => {
-      console.log("📋 PARTICIPANTS LIST RECEIVED:", participants.length, "participants")
-      dispatch({ type: "SET_PARTICIPANTS_LIST", payload: participants })
     })
 
     socket.on("new-response", (responseData: any) => {

@@ -31,41 +31,8 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Main action cards */}
-        <div className="grid md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto mb-12 md:mb-16">
-          <Card className="group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-white/80 backdrop-blur-sm border-0 shadow-xl">
-            <CardHeader className="text-center pb-4">
-              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <GraduationCap className="w-8 h-8 md:w-10 md:h-10 text-white" />
-              </div>
-              <CardTitle className="text-xl md:text-2xl text-gray-800">🎓 Soy Profesor</CardTitle>
-              <CardDescription className="text-base md:text-lg text-gray-600">
-                Crea y gestiona quizzes interactivos para tus estudiantes
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center">
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center justify-center gap-2 text-sm md:text-base text-gray-600">
-                  <Zap className="w-4 h-4 text-yellow-500" />
-                  <span>Preguntas en tiempo real</span>
-                </div>
-                <div className="flex items-center justify-center gap-2 text-sm md:text-base text-gray-600">
-                  <Trophy className="w-4 h-4 text-amber-500" />
-                  <span>Sistema de puntuación</span>
-                </div>
-                <div className="flex items-center justify-center gap-2 text-sm md:text-base text-gray-600">
-                  <Users className="w-4 h-4 text-blue-500" />
-                  <span>Gestión de estudiantes</span>
-                </div>
-              </div>
-              <Link href="/teacher">
-                <Button className="w-full h-12 md:h-14 text-base md:text-lg font-bold bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300">
-                  🚀 Acceder como Profesor
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
+        {/* Main action card for students */}
+        <div className="max-w-md mx-auto mb-12 md:mb-16">
           <Card className="group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-white/80 backdrop-blur-sm border-0 shadow-xl">
             <CardHeader className="text-center pb-4">
               <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
@@ -73,7 +40,7 @@ export default function HomePage() {
               </div>
               <CardTitle className="text-xl md:text-2xl text-gray-800">🎮 Soy Estudiante</CardTitle>
               <CardDescription className="text-base md:text-lg text-gray-600">
-                Únete a un quiz y compite con tus compañeros
+                Unite a un quiz y competí con tus compañeros
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center">
@@ -93,11 +60,24 @@ export default function HomePage() {
               </div>
               <Link href="/student">
                 <Button className="w-full h-12 md:h-14 text-base md:text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300">
-                  🎯 Unirse a un Quiz
+                  🎯 Unirme a un Quiz
                 </Button>
               </Link>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Discrete teacher access */}
+        <div className="text-center mb-8">
+          <p className="text-sm text-gray-500 mb-3">
+            ¿Sos docente?{" "}
+            <Link 
+              href="/teacher" 
+              className="text-gray-600 hover:text-indigo-600 underline underline-offset-2 transition-colors duration-200 text-sm"
+            >
+              Accedé al panel de profesor
+            </Link>
+          </p>
         </div>
 
         {/* Features section */}

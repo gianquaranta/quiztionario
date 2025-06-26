@@ -58,7 +58,7 @@ export default function TeacherPage() {
             </div>
             <CardTitle className="text-2xl text-slate-800">🔐 Acceso Docente</CardTitle>
             <CardDescription className="text-slate-600">
-              Ingresa el PIN de seguridad para acceder al panel de control
+              Ingresá el PIN de seguridad para acceder al panel de control
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -73,14 +73,14 @@ export default function TeacherPage() {
                   type="password"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  placeholder="Ingresa el PIN de 6 dígitos"
+                  placeholder="Ingresá el PIN de 6 dígitos"
                   className="pl-10 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-slate-500"
                   maxLength={6}
                   onKeyPress={(e) => e.key === "Enter" && handlePinSubmit()}
                 />
               </div>
               {showError && (
-                <p className="text-red-600 text-sm mt-2 animate-pulse">❌ PIN incorrecto. Intenta nuevamente.</p>
+                <p className="text-red-600 text-sm mt-2 animate-pulse">❌ PIN incorrecto. Intentá nuevamente.</p>
               )}
             </div>
             <Button
@@ -392,7 +392,7 @@ function TeacherDashboard() {
             <CardHeader>
               <CardTitle className="text-slate-800 text-xl md:text-2xl">🎯 Crear Nuevo Quiz</CardTitle>
               <CardDescription className="text-slate-600">
-                Diseña preguntas que desafíen a tus estudiantes
+                Diseñá preguntas que desafíen a tus estudiantes
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -404,7 +404,7 @@ function TeacherDashboard() {
                   id="title"
                   value={newQuiz.title}
                   onChange={(e) => setNewQuiz({ ...newQuiz, title: e.target.value })}
-                  placeholder="Ingresa un título genial"
+                  placeholder="Ingresá un título genial"
                   className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
                 />
               </div>
@@ -432,7 +432,7 @@ function TeacherDashboard() {
                       updatedQuestions[index].text = e.target.value
                       setNewQuiz({ ...newQuiz, questions: updatedQuestions })
                     }}
-                    placeholder="¿Qué pregunta desafiante harás?"
+                    placeholder="¿Qué pregunta desafiante vas a hacer?"
                     className="w-full p-3 rounded-md bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 resize-none"
                     rows={3}
                   />
