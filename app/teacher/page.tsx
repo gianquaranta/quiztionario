@@ -659,10 +659,24 @@ function TeacherDashboard() {
             {questionActive && currentQuestion && (
               <Card className="bg-gradient-to-r from-green-50 to-blue-50 backdrop-blur-lg border border-green-200">
                 <CardHeader>
-                  <CardTitle className="text-slate-800 text-xl flex items-center gap-2">
-                    ⚡ Resultados en Vivo
-                  </CardTitle>
-                  <CardDescription className="text-slate-600 text-lg">{currentQuestion.question_text}</CardDescription>
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <CardTitle className="text-slate-800 text-xl flex items-center gap-2">
+                        ⚡ Resultados en Vivo
+                      </CardTitle>
+                      <CardDescription className="text-slate-600 text-lg">
+                        {currentQuestion.question_text}
+                      </CardDescription>
+                    </div>
+                    <Button
+                      onClick={pauseQuestion}
+                      variant="outline"
+                      className="border-orange-300 text-orange-700 hover:bg-orange-50 font-bold"
+                    >
+                      <Pause className="w-4 h-4 mr-2" />
+                      ⏸️ Pausar Pregunta
+                    </Button>
+                  </div>
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
                     <p className="text-amber-700 text-sm font-medium">
                       💡 Otorga puntos al estudiante más rápido. Una vez otorgados, la pregunta se cerrará.
@@ -688,9 +702,7 @@ function TeacherDashboard() {
                         <div
                           key={response.id || index}
                           className={`flex items-center justify-between p-4 border rounded-lg transition-all ${
-                            index === 0
-                              ? "border-green-300 bg-green-50 shadow-md"
-                              : "border-slate-200 bg-white/80 opacity-75"
+                            index === 0 ? "border-green-300 bg-green-50 shadow-md" : "border-slate-200 bg-white/80"
                           }`}
                         >
                           <div className="flex items-center gap-4">
@@ -728,43 +740,34 @@ function TeacherDashboard() {
                             )}
                           </div>
 
-                          {/* Solo mostrar botones para el primero */}
-                          {index === 0 ? (
-                            <div className="flex gap-2">
-                              {[1, 2, 3].slice(0, currentQuestion.max_points).map((points) => (
-                                <Button
-                                  key={points}
-                                  size="sm"
-                                  onClick={() => awardPoints(response.participant?.id, points)}
-                                  className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 shadow-lg"
-                                >
-                                  <Trophy className="w-3 h-3 mr-1" />
-                                  Dar {points} pt{points > 1 ? "s" : ""}
-                                </Button>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-slate-400 text-sm">Esperando...</div>
-                          )}
+                          {/* Mostrar botones para TODOS los que respondieron */}
+                          <div className="flex gap-2">
+                            {[1, 2, 3].slice(0, currentQuestion.max_points).map((points) => (
+                              <Button
+                                key={points}
+                                size="sm"
+                                onClick={() => awardPoints(response.participant?.id, points)}
+                                className={`${
+                                  index === 0
+                                    ? "bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 shadow-lg"
+                                    : "bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600"
+                                }`}
+                              >
+                                <Trophy className="w-3 h-3 mr-1" />
+                                {points} pt{points > 1 ? "s" : ""}
+                              </Button>
+                            ))}
+                          </div>
                         </div>
                       ))}
 
                       <div className="flex gap-2 mt-4">
                         <Button
-                          onClick={pauseQuestion}
-                          variant="outline"
-                          className="flex-1 border-orange-300 text-orange-700 hover:bg-orange-50"
-                        >
-                          <Pause className="w-4 h-4 mr-2" />
-                          ⏸️ Pausar Pregunta
-                        </Button>
-                        <Button
                           onClick={endQuestion}
                           variant="outline"
-                          className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-100"
+                          className="w-full border-red-300 text-red-700 hover:bg-red-50"
                         >
-                          <Square className="w-4 h-4 mr-2" />
-                          Cerrar sin Puntos
+                          <Square className="w-4 h-4 mr-2" />🛑 Cerrar Pregunta Definitivamente
                         </Button>
                       </div>
                     </div>

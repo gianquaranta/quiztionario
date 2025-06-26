@@ -94,22 +94,25 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
       console.log("🧹 CLEARING RESPONSES")
       return { ...state, responses: [] }
     case "SET_CURRENT_QUESTION":
-      console.log("❓ SETTING CURRENT QUESTION:", action.payload.question.question_text)
+      console.log("📝 SETTING CURRENT QUESTION:", action.payload.question.question_text)
       return {
         ...state,
         currentQuestion: action.payload.question,
         questionStartTime: action.payload.startTime,
         questionActive: true,
+        responses: [], // Limpiar respuestas cuando empiece nueva pregunta
       }
     case "SET_QUESTION_ACTIVE":
       if (!action.payload) {
-        console.log("🛑 DEACTIVATING QUESTION AND CLEARING STATE")
+        // Si se desactiva la pregunta, NO limpiar las respuestas inmediatamente
+        // para que el estudiante pueda ver su resultado
+        console.log("🛑 DEACTIVATING QUESTION (keeping responses for feedback)")
         return {
           ...state,
           questionActive: false,
           currentQuestion: null,
           questionStartTime: null,
-          responses: [],
+          // NO limpiar responses aquí para mantener feedback
         }
       }
       return { ...state, questionActive: action.payload }
