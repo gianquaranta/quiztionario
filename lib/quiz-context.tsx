@@ -38,6 +38,7 @@ type QuizAction =
   | { type: "REMOVE_STUDENT"; payload: string }
   | { type: "UPDATE_STUDENT_POINTS"; payload: { id: string; points: number } }
   | { type: "SET_STUDENTS"; payload: Student[] }
+  | { type: "SET_PARTICIPANTS_LIST"; payload: Student[] }
   | { type: "ADD_RESPONSE"; payload: Response }
   | { type: "CLEAR_RESPONSES" }
   | { type: "SET_CURRENT_QUESTION"; payload: { question: any; startTime: number } }
@@ -83,6 +84,9 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
         ),
       }
     case "SET_STUDENTS":
+      return { ...state, students: action.payload }
+    case "SET_PARTICIPANTS_LIST":
+      console.log("📋 SETTING COMPLETE PARTICIPANTS LIST:", action.payload.length, "participants")
       return { ...state, students: action.payload }
     case "ADD_RESPONSE":
       console.log("📨 ADDING RESPONSE TO STATE:", action.payload.participant?.student_name)
@@ -170,6 +174,12 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     socket.on("student-left", (participant: Student) => {
       console.log("👋 STUDENT LEFT EVENT RECEIVED:", participant.student_name)
       dispatch({ type: "REMOVE_STUDENT", payload: participant.id })
+    })
+
+    // NUEVO: Manejar lista completa de participantes
+    socket.on("participants-list", (participants: Student[]) => {
+      console.log("📋 PARTICIPANTS LIST RECEIVED:", participants.length, "participants")
+      dispatch({ type: "SET_PARTICIPANTS_LIST", payload: participants })
     })
 
     socket.on("new-response", (responseData: any) => {
