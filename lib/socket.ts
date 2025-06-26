@@ -1,33 +1,57 @@
 import { io, type Socket } from "socket.io-client"
 
-// Socket.IO client configuration
 const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "http://localhost:3000"
 
 class SocketManager {
   private socket: Socket | null = null
   private isConnected = false
+  private reconnectAttempts = 0
+  private maxReconnectAttempts = 5
 
   connect() {
-    if (this.socket?.connected) return this.socket
+    if (this.socket?.connected) {
+      console.log("✅ Socket already connected")
+      return this.socket
+    }
+
+    console.log("🔌 Connecting to Socket.IO server...")
 
     this.socket = io(SOCKET_SERVER_URL, {
       path: "/api/socket.io",
       transports: ["websocket", "polling"],
-      autoConnect: true,
+      timeout: 10000,
+      reconnection: true,
+      reconnectionAttempts: this.maxReconnectAttempts,
+      reconnectionDelay: 1000,
     })
 
     this.socket.on("connect", () => {
-      console.log("✅ Socket connected:", this.socket?.id)
+      console.log("✅ Socket connected successfully:", this.socket?.id)
       this.isConnected = true
+      this.reconnectAttempts = 0
     })
 
-    this.socket.on("disconnect", () => {
-      console.log("❌ Socket disconnected")
+    this.socket.on("disconnect", (reason) => {
+      console.log("❌ Socket disconnected:", reason)
       this.isConnected = false
     })
 
     this.socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error)
+      console.error("❌ Socket connection error:", error.message)
+      this.reconnectAttempts++
+
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        console.error("❌ Max reconnection attempts reached")
+      }
+    })
+
+    this.socket.on("reconnect", (attemptNumber) => {
+      console.log(`✅ Socket reconnected after ${attemptNumber} attempts`)
+      this.isConnected = true
+    })
+
+    this.socket.on("reconnect_error", (error) => {
+      console.error("❌ Socket reconnection error:", error.message)
     })
 
     return this.socket
@@ -35,6 +59,7 @@ class SocketManager {
 
   disconnect() {
     if (this.socket) {
+      console.log("🔌 Disconnecting socket...")
       this.socket.disconnect()
       this.socket = null
       this.isConnected = false
@@ -43,15 +68,19 @@ class SocketManager {
 
   emit(event: string, ...args: any[]) {
     if (this.socket?.connected) {
+      console.log(`📤 Emitting: ${event}`)
       this.socket.emit(event, ...args)
     } else {
-      console.warn(`Cannot emit ${event}: Socket not connected`)
+      console.warn(`⚠️ Cannot emit ${event}: Socket not connected`)
     }
   }
 
   on(event: string, callback: (...args: any[]) => void) {
     if (this.socket) {
-      this.socket.on(event, callback)
+      this.socket.on(event, (...args) => {
+        console.log(`📥 Received: ${event}`)
+        callback(...args)
+      })
     }
   }
 
@@ -68,4 +97,3 @@ class SocketManager {
 
 // Export singleton instance
 export const socketManager = new SocketManager()
-export const socket = socketManager.connect()

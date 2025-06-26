@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, BookOpen, Sparkles, Trophy, Zap } from "lucide-react"
 import Link from "next/link"
+import { SocketDebug } from "@/components/socket-debug"
 
 export default function HomePage() {
   return (
@@ -14,7 +15,9 @@ export default function HomePage() {
         <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="max-w-4xl mx-auto relative z-10">
+      <div className="container mx-auto p-8 relative z-10">
+        <h1 className="text-3xl font-bold mb-8">QuizMaster Debug</h1>
+        <SocketDebug />
         <div className="text-center mb-12 pt-8">
           <div className="flex justify-center items-center gap-3 mb-4">
             <Sparkles className="w-12 h-12 text-yellow-300 animate-pulse" />
