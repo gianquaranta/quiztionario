@@ -1,12 +1,14 @@
 "use client"
 
+import Link from "next/link"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Shield, Lock, Users, Play, Square, Trophy } from "lucide-react"
+import { Shield, Lock, Users, Play, Square, Trophy, Home, Copy } from "lucide-react"
 import { useQuiz } from "@/lib/quiz-context"
 import { db, type Quiz, type QuizSession, type SessionParticipant } from "@/lib/supabase"
 
@@ -30,58 +32,63 @@ export default function TeacherPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 p-4 flex items-center justify-center">
         <div
-          className="absolute inset-0 opacity-20"
+          className="absolute inset-0 opacity-10"
           style={{
             backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fillRule='evenodd'%3E%3Cg fill='%239C92AC' fillOpacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+              "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fillRule='evenodd'%3E%3Cg fill='%23475569' fillOpacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
           }}
         />
 
         <Card
-          className={`w-full max-w-md bg-white/10 backdrop-blur-lg border border-white/20 ${showError ? "animate-shake" : ""}`}
+          className={`w-full max-w-md bg-white/90 backdrop-blur-lg border border-slate-300 shadow-xl ${showError ? "animate-shake" : ""}`}
         >
           <CardHeader className="text-center">
-            <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center">
+            <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-slate-600 to-slate-800 rounded-full flex items-center justify-center shadow-lg">
               <Shield className="w-10 h-10 text-white" />
             </div>
-            <CardTitle className="text-2xl text-white">🔐 Teacher Access</CardTitle>
-            <CardDescription className="text-white/70">
-              Enter the secret PIN to access the teacher dashboard
+            <CardTitle className="text-2xl text-slate-800">🔐 Acceso Docente</CardTitle>
+            <CardDescription className="text-slate-600">
+              Ingresa el PIN de seguridad para acceder al panel de control
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="pin" className="text-white">
-                Security PIN
+              <Label htmlFor="pin" className="text-slate-700">
+                PIN de Seguridad
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/50" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   id="pin"
                   type="password"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  placeholder="Enter 6-digit PIN"
-                  className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  placeholder="Ingresa el PIN de 6 dígitos"
+                  className="pl-10 bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-slate-500"
                   maxLength={6}
                   onKeyPress={(e) => e.key === "Enter" && handlePinSubmit()}
                 />
               </div>
-              {showError && <p className="text-red-400 text-sm mt-2 animate-pulse">❌ Invalid PIN. Try again!</p>}
+              {showError && (
+                <p className="text-red-600 text-sm mt-2 animate-pulse">❌ PIN incorrecto. Intenta nuevamente.</p>
+              )}
             </div>
             <Button
               onClick={handlePinSubmit}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold"
+              className="w-full bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-bold"
               disabled={pin.length !== 6}
             >
-              🚀 Access Dashboard
+              🚀 Acceder al Panel
             </Button>
             <div className="text-center">
-              <Button variant="ghost" className="text-white/70 hover:text-white" onClick={() => window.history.back()}>
-                ← Back to Home
-              </Button>
+              <Link href="/">
+                <Button variant="ghost" className="text-slate-600 hover:text-slate-800">
+                  <Home className="w-4 h-4 mr-2" />
+                  Volver al Inicio
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -114,40 +121,33 @@ function TeacherDashboard() {
   const [responses, setResponses] = useState<any[]>([])
   const [participants, setParticipants] = useState<SessionParticipant[]>([])
   const [loading, setLoading] = useState(false)
-  const [teacherId] = useState("temp-teacher-id") // In real app, get from auth
+  const [teacherId] = useState("temp-teacher-id")
 
-  // Load teacher's quizzes on mount
   useEffect(() => {
     loadQuizzes()
   }, [])
 
-  // Listen for real-time updates
   useEffect(() => {
-    // Update participants from socket
     if (state.students.length > 0) {
       setParticipants(state.students)
     }
 
-    // Update responses from socket
     if (state.responses.length > 0) {
       setResponses(state.responses)
     }
 
-    // Update question state
     setQuestionActive(state.questionActive)
     setCurrentQuestion(state.currentQuestion)
   }, [state])
 
   const loadQuizzes = async () => {
     try {
-      // For demo, we'll create some sample quizzes if none exist
       const existingQuizzes = await db.getTeacherQuizzes(teacherId)
       if (existingQuizzes.length === 0) {
-        // Create a sample quiz for testing
-        const sampleQuiz = await db.createQuiz(teacherId, "Sample Quiz", "A quick test quiz")
-        await db.addQuestionToQuiz(sampleQuiz.id, "What is 2 + 2?", 1, 0)
-        await db.addQuestionToQuiz(sampleQuiz.id, "What is the capital of France?", 2, 1)
-        await db.addQuestionToQuiz(sampleQuiz.id, "Name a programming language", 1, 2)
+        const sampleQuiz = await db.createQuiz(teacherId, "Quiz de Ejemplo", "Un quiz de prueba rápido")
+        await db.addQuestionToQuiz(sampleQuiz.id, "¿Cuánto es 2 + 2?", 1, 0)
+        await db.addQuestionToQuiz(sampleQuiz.id, "¿Cuál es la capital de Francia?", 2, 1)
+        await db.addQuestionToQuiz(sampleQuiz.id, "Nombra un lenguaje de programación", 1, 2)
 
         const updatedQuizzes = await db.getTeacherQuizzes(teacherId)
         setQuizzes(updatedQuizzes)
@@ -155,8 +155,7 @@ function TeacherDashboard() {
         setQuizzes(existingQuizzes)
       }
     } catch (error) {
-      console.error("Error loading quizzes:", error)
-      // Fallback to local state if database fails
+      console.error("Error al cargar quizzes:", error)
       setQuizzes([])
     }
   }
@@ -166,10 +165,8 @@ function TeacherDashboard() {
 
     setLoading(true)
     try {
-      // Create quiz in database
       const quiz = await db.createQuiz(teacherId, newQuiz.title, newQuiz.description)
 
-      // Add questions to quiz
       for (let i = 0; i < newQuiz.questions.length; i++) {
         const question = newQuiz.questions[i]
         if (question.text.trim()) {
@@ -177,15 +174,12 @@ function TeacherDashboard() {
         }
       }
 
-      // Reload quizzes
       await loadQuizzes()
-
-      // Reset form
       setNewQuiz({ title: "", description: "", questions: [{ text: "", maxPoints: 1 }] })
       setShowCreateQuiz(false)
     } catch (error) {
-      console.error("Error creating quiz:", error)
-      alert("Failed to create quiz. Please try again.")
+      console.error("Error al crear quiz:", error)
+      alert("Error al crear el quiz. Intenta nuevamente.")
     } finally {
       setLoading(false)
     }
@@ -194,17 +188,15 @@ function TeacherDashboard() {
   const startQuizSession = async (quiz: Quiz) => {
     setLoading(true)
     try {
-      // Create session in database
       const session = await db.createQuizSession(teacherId, quiz.id)
       setActiveSession(session)
 
-      // Join socket room as teacher
       emit("teacher-start-session", session.session_code, session.id)
 
-      console.log(`🎯 Quiz session started! Code: ${session.session_code}`)
+      console.log(`🎯 Sesión de quiz iniciada! Código: ${session.session_code}`)
     } catch (error) {
-      console.error("Error starting session:", error)
-      alert("Failed to start session. Please try again.")
+      console.error("Error al iniciar sesión:", error)
+      alert("Error al iniciar la sesión. Intenta nuevamente.")
     } finally {
       setLoading(false)
     }
@@ -216,12 +208,10 @@ function TeacherDashboard() {
     setQuestionActive(true)
     setResponses([])
 
-    // Emit to all students via socket
     if (activeSession) {
       emit("teacher-start-question", activeSession.session_code, question, startTime)
     }
 
-    // Update database
     if (activeSession) {
       db.startQuestion(activeSession.id, question.id).catch(console.error)
     }
@@ -229,20 +219,17 @@ function TeacherDashboard() {
 
   const awardPoints = async (participantId: string, points: number) => {
     try {
-      // Find the response for this participant
       const response = responses.find((r) => r.participant?.id === participantId)
       if (response && response.id) {
         const rank = responses.findIndex((r) => r.participant?.id === participantId) + 1
         await db.awardPoints(response.id, points, rank)
       }
 
-      // Update participant points in real-time
       const updatedParticipants = participants.map((p) =>
         p.id === participantId ? { ...p, total_points: p.total_points + points } : p,
       )
       setParticipants(updatedParticipants)
 
-      // Emit to all clients
       if (activeSession) {
         const participant = participants.find((p) => p.id === participantId)
         if (participant) {
@@ -250,9 +237,9 @@ function TeacherDashboard() {
         }
       }
 
-      console.log(`🏆 Awarded ${points} points to participant ${participantId}`)
+      console.log(`🏆 Se otorgaron ${points} puntos al participante ${participantId}`)
     } catch (error) {
-      console.error("Error awarding points:", error)
+      console.error("Error al otorgar puntos:", error)
     }
   }
 
@@ -279,9 +266,16 @@ function TeacherDashboard() {
       setResponses([])
       setParticipants([])
 
-      console.log("🛑 Session ended")
+      console.log("🛑 Sesión terminada")
     } catch (error) {
-      console.error("Error ending session:", error)
+      console.error("Error al terminar sesión:", error)
+    }
+  }
+
+  const copySessionCode = () => {
+    if (activeSession?.session_code) {
+      navigator.clipboard.writeText(activeSession.session_code)
+      alert("¡Código copiado al portapapeles!")
     }
   }
 
@@ -289,45 +283,45 @@ function TeacherDashboard() {
 
   if (showCreateQuiz) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 p-4">
         <div className="max-w-2xl mx-auto">
-          <Card className="bg-white/10 backdrop-blur-lg border border-white/20">
+          <Card className="bg-white/90 backdrop-blur-lg border border-slate-300 shadow-xl">
             <CardHeader>
-              <CardTitle className="text-white text-2xl">🎯 Create Epic Quiz</CardTitle>
-              <CardDescription className="text-white/70">
-                Design questions that will challenge your students!
+              <CardTitle className="text-slate-800 text-2xl">🎯 Crear Nuevo Quiz</CardTitle>
+              <CardDescription className="text-slate-600">
+                Diseña preguntas que desafíen a tus estudiantes
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="title" className="text-white">
-                  Quiz Title
+                <Label htmlFor="title" className="text-slate-700">
+                  Título del Quiz
                 </Label>
                 <Input
                   id="title"
                   value={newQuiz.title}
                   onChange={(e) => setNewQuiz({ ...newQuiz, title: e.target.value })}
-                  placeholder="Enter an awesome quiz title"
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  placeholder="Ingresa un título genial"
+                  className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
                 />
               </div>
 
               <div>
-                <Label htmlFor="description" className="text-white">
-                  Description (Optional)
+                <Label htmlFor="description" className="text-slate-700">
+                  Descripción (Opcional)
                 </Label>
                 <Input
                   id="description"
                   value={newQuiz.description}
                   onChange={(e) => setNewQuiz({ ...newQuiz, description: e.target.value })}
-                  placeholder="Brief description of your quiz"
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  placeholder="Breve descripción del quiz"
+                  className="bg-white border-slate-300 text-slate-800 placeholder:text-slate-400"
                 />
               </div>
 
               {newQuiz.questions.map((question, index) => (
-                <div key={index} className="border border-white/20 rounded-lg p-4 space-y-3 bg-white/5">
-                  <Label className="text-white">Question {index + 1} 🤔</Label>
+                <div key={index} className="border border-slate-300 rounded-lg p-4 space-y-3 bg-slate-50">
+                  <Label className="text-slate-700">Pregunta {index + 1} 🤔</Label>
                   <Textarea
                     value={question.text}
                     onChange={(e) => {
@@ -335,12 +329,12 @@ function TeacherDashboard() {
                       updatedQuestions[index].text = e.target.value
                       setNewQuiz({ ...newQuiz, questions: updatedQuestions })
                     }}
-                    placeholder="What challenging question will you ask?"
-                    className="w-full p-3 rounded-md bg-white/10 border border-white/20 text-white placeholder:text-white/50 resize-none"
+                    placeholder="¿Qué pregunta desafiante harás?"
+                    className="w-full p-3 rounded-md bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 resize-none"
                     rows={3}
                   />
                   <div>
-                    <Label className="text-white">Max Points (1-3) 🏆</Label>
+                    <Label className="text-slate-700">Puntos Máximos (1-3) 🏆</Label>
                     <Input
                       type="number"
                       min="1"
@@ -351,7 +345,7 @@ function TeacherDashboard() {
                         updatedQuestions[index].maxPoints = Number.parseInt(e.target.value) || 1
                         setNewQuiz({ ...newQuiz, questions: updatedQuestions })
                       }}
-                      className="w-20 bg-white/10 border-white/20 text-white"
+                      className="w-20 bg-white border-slate-300 text-slate-800"
                     />
                   </div>
                 </div>
@@ -365,25 +359,25 @@ function TeacherDashboard() {
                   })
                 }
                 variant="outline"
-                className="w-full border-white/20 text-white hover:bg-white/10"
+                className="w-full border-slate-300 text-slate-700 hover:bg-slate-100"
               >
-                ➕ Add Another Question
+                ➕ Agregar Otra Pregunta
               </Button>
 
               <div className="flex gap-2">
                 <Button
                   onClick={createQuiz}
                   disabled={loading}
-                  className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                 >
-                  {loading ? "Creating..." : "🚀 Create Quiz"}
+                  {loading ? "Creando..." : "🚀 Crear Quiz"}
                 </Button>
                 <Button
                   onClick={() => setShowCreateQuiz(false)}
                   variant="outline"
-                  className="border-white/20 text-white hover:bg-white/10"
+                  className="border-slate-300 text-slate-700 hover:bg-slate-100"
                 >
-                  Cancel
+                  Cancelar
                 </Button>
               </div>
             </CardContent>
@@ -394,75 +388,78 @@ function TeacherDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 p-4">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-4xl font-bold text-white">🎓 Teacher Command Center</h1>
-            <p className="text-white/70 text-lg">Control the quiz universe from here!</p>
+            <h1 className="text-4xl font-bold text-slate-800">🎓 Panel de Control Docente</h1>
+            <p className="text-slate-600 text-lg">Controla el universo de quizzes desde aquí</p>
             {activeSession && (
               <div className="mt-2 flex items-center gap-4">
-                <div className="bg-green-500/20 text-green-300 px-4 py-2 rounded-full font-bold text-lg">
-                  📡 Session Code: {activeSession.session_code}
+                <div className="bg-green-100 text-green-700 px-4 py-2 rounded-full font-bold text-lg border border-green-200 flex items-center gap-2">
+                  📡 Código de Sesión: {activeSession.session_code}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={copySessionCode}
+                    className="h-6 w-6 p-0 hover:bg-green-200"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </Button>
                 </div>
-                <div className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm">
+                <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm border border-blue-200">
                   <Users className="w-4 h-4 inline mr-1" />
-                  {participants.length} Students Connected
+                  {participants.length} Estudiantes Conectados
                 </div>
               </div>
             )}
           </div>
           <div className="flex gap-2">
             {activeSession && (
-              <Button
-                onClick={endSession}
-                variant="outline"
-                className="border-red-400/20 text-red-300 hover:bg-red-500/10"
-              >
-                🛑 End Session
+              <Button onClick={endSession} variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+                🛑 Terminar Sesión
               </Button>
             )}
-            <Button
-              variant="outline"
-              className="border-white/20 text-white hover:bg-white/10"
-              onClick={() => window.history.back()}
-            >
-              🏠 Home
-            </Button>
+            <Link href="/">
+              <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-100">
+                <Home className="w-4 h-4 mr-2" />
+                Inicio
+              </Button>
+            </Link>
           </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Quiz Management */}
+          {/* Gestión de Quizzes */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="bg-white/10 backdrop-blur-lg border border-white/20">
+            <Card className="bg-white/90 backdrop-blur-lg border border-slate-300">
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle className="text-white text-xl">📚 My Quiz Collection</CardTitle>
+                  <CardTitle className="text-slate-800 text-xl">📚 Mi Colección de Quizzes</CardTitle>
                   <Button
                     onClick={() => setShowCreateQuiz(true)}
                     className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
                   >
-                    ✨ Create New Quiz
+                    ✨ Crear Nuevo Quiz
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
                 {quizzes.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-white/70 text-lg">🎯 No quizzes yet - create your first masterpiece!</p>
+                    <p className="text-slate-600 text-lg">🎯 Aún no hay quizzes - ¡crea tu primera obra maestra!</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {quizzes.map((quiz) => (
                       <div
                         key={quiz.id}
-                        className="flex items-center justify-between p-4 border border-white/20 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+                        className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-all"
                       >
                         <div>
-                          <h3 className="font-medium text-white text-lg">{quiz.title}</h3>
-                          <p className="text-white/60">
-                            {quiz.questions?.length || 0} questions • {quiz.description || "Ready to launch!"}
+                          <h3 className="font-medium text-slate-800 text-lg">{quiz.title}</h3>
+                          <p className="text-slate-600">
+                            {quiz.questions?.length || 0} preguntas • {quiz.description || "¡Listo para lanzar!"}
                           </p>
                         </div>
                         <Button
@@ -472,10 +469,10 @@ function TeacherDashboard() {
                           className={
                             activeSession?.quiz?.id === quiz.id
                               ? "bg-green-500"
-                              : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                              : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                           }
                         >
-                          {activeSession?.quiz?.id === quiz.id ? "🔥 Active" : loading ? "Starting..." : "🚀 Launch"}
+                          {activeSession?.quiz?.id === quiz.id ? "🔥 Activo" : loading ? "Iniciando..." : "🚀 Lanzar"}
                         </Button>
                       </div>
                     ))}
@@ -484,12 +481,12 @@ function TeacherDashboard() {
               </CardContent>
             </Card>
 
-            {/* Active Quiz Control */}
+            {/* Control de Quiz Activo */}
             {activeSession && activeSession.quiz && (
-              <Card className="bg-white/10 backdrop-blur-lg border border-white/20">
+              <Card className="bg-white/90 backdrop-blur-lg border border-slate-300">
                 <CardHeader>
-                  <CardTitle className="text-white text-xl flex items-center gap-2">
-                    🎮 Active Quiz: {activeSession.quiz.title}
+                  <CardTitle className="text-slate-800 text-xl flex items-center gap-2">
+                    🎮 Quiz Activo: {activeSession.quiz.title}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -497,13 +494,13 @@ function TeacherDashboard() {
                     {activeSession.quiz.questions?.map((question) => (
                       <div
                         key={question.id}
-                        className="flex items-center justify-between p-4 border border-white/20 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+                        className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-all"
                       >
                         <div className="flex-1">
-                          <p className="font-medium text-white">{question.question_text}</p>
+                          <p className="font-medium text-slate-800">{question.question_text}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded text-sm">
-                              🏆 Max {question.max_points} points
+                            <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-sm border border-amber-200">
+                              🏆 Máx {question.max_points} puntos
                             </span>
                           </div>
                         </div>
@@ -514,7 +511,7 @@ function TeacherDashboard() {
                           className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
                         >
                           <Play className="w-4 h-4 mr-1" />
-                          Ask Question
+                          Hacer Pregunta
                         </Button>
                       </div>
                     ))}
@@ -523,25 +520,27 @@ function TeacherDashboard() {
               </Card>
             )}
 
-            {/* Current Question Results */}
+            {/* Resultados de Pregunta Actual */}
             {questionActive && currentQuestion && (
-              <Card className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-lg border border-green-300/30">
+              <Card className="bg-gradient-to-r from-green-50 to-blue-50 backdrop-blur-lg border border-green-200">
                 <CardHeader>
-                  <CardTitle className="text-white text-xl flex items-center gap-2">⚡ Live Question Results</CardTitle>
-                  <CardDescription className="text-white/80 text-lg">{currentQuestion.question_text}</CardDescription>
+                  <CardTitle className="text-slate-800 text-xl flex items-center gap-2">
+                    ⚡ Resultados en Vivo
+                  </CardTitle>
+                  <CardDescription className="text-slate-600 text-lg">{currentQuestion.question_text}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {responses.length === 0 ? (
                     <div className="text-center py-8">
                       <div className="animate-pulse text-4xl mb-4">⏱️</div>
-                      <p className="text-white/70 text-lg">Waiting for lightning-fast responses...</p>
+                      <p className="text-slate-600 text-lg">Esperando respuestas súper rápidas...</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {responses.slice(0, 10).map((response, index) => (
                         <div
                           key={response.id || index}
-                          className="flex items-center justify-between p-4 border border-white/20 rounded-lg bg-white/10"
+                          className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-white/80"
                         >
                           <div className="flex items-center gap-4">
                             <div
@@ -549,7 +548,7 @@ function TeacherDashboard() {
                                 index === 0
                                   ? "bg-yellow-500 text-black"
                                   : index === 1
-                                    ? "bg-gray-300 text-black"
+                                    ? "bg-gray-400 text-white"
                                     : index === 2
                                       ? "bg-orange-500 text-white"
                                       : "bg-blue-500 text-white"
@@ -558,10 +557,10 @@ function TeacherDashboard() {
                               {index + 1}
                             </div>
                             <div>
-                              <p className="font-medium text-white text-lg">
-                                {response.participant?.student_name || "Unknown Student"}
+                              <p className="font-medium text-slate-800 text-lg">
+                                {response.participant?.student_name || "Estudiante Desconocido"}
                               </p>
-                              <p className="text-white/60">⚡ {(response.responseTime / 1000).toFixed(2)}s</p>
+                              <p className="text-slate-600">⚡ {(response.responseTime / 1000).toFixed(2)}s</p>
                             </div>
                             {index < 3 && (
                               <span className="text-2xl">{index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}</span>
@@ -574,7 +573,7 @@ function TeacherDashboard() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => awardPoints(response.participant?.id, points)}
-                                className="border-white/20 text-white hover:bg-white/10"
+                                className="border-slate-300 text-slate-700 hover:bg-slate-100"
                               >
                                 <Trophy className="w-3 h-3 mr-1" />
                                 {points} pt{points > 1 ? "s" : ""}
@@ -588,7 +587,7 @@ function TeacherDashboard() {
                         className="w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
                       >
                         <Square className="w-4 h-4 mr-2" />
-                        End Question
+                        Terminar Pregunta
                       </Button>
                     </div>
                   )}
@@ -597,23 +596,23 @@ function TeacherDashboard() {
             )}
           </div>
 
-          {/* Student Rankings & Participants */}
+          {/* Rankings de Estudiantes y Participantes */}
           <div>
-            <Card className="bg-white/10 backdrop-blur-lg border border-white/20">
+            <Card className="bg-white/90 backdrop-blur-lg border border-slate-300">
               <CardHeader>
-                <CardTitle className="text-white text-xl flex items-center gap-2">🏆 Leaderboard</CardTitle>
+                <CardTitle className="text-slate-800 text-xl flex items-center gap-2">🏆 Tabla de Posiciones</CardTitle>
               </CardHeader>
               <CardContent>
                 {leaderboard.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-white/70">🎯 No champions yet - start awarding points!</p>
+                    <p className="text-slate-600">🎯 Aún no hay campeones - ¡comienza a otorgar puntos!</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {leaderboard.map((participant, index) => (
                       <div
                         key={participant.id}
-                        className="flex items-center justify-between p-3 border border-white/20 rounded-lg bg-white/5"
+                        className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-slate-50"
                       >
                         <div className="flex items-center gap-3">
                           <div
@@ -621,7 +620,7 @@ function TeacherDashboard() {
                               index === 0
                                 ? "bg-yellow-500 text-black"
                                 : index === 1
-                                  ? "bg-gray-300 text-black"
+                                  ? "bg-gray-400 text-white"
                                   : index === 2
                                     ? "bg-orange-500 text-white"
                                     : "bg-blue-500 text-white"
@@ -630,11 +629,11 @@ function TeacherDashboard() {
                             {index + 1}
                           </div>
                           <div>
-                            <p className="font-medium text-white">{participant.student_name}</p>
-                            {index === 0 && <span className="text-yellow-400 text-sm">👑 Quiz Champion!</span>}
+                            <p className="font-medium text-slate-800">{participant.student_name}</p>
+                            {index === 0 && <span className="text-amber-600 text-sm">👑 ¡Campeón del Quiz!</span>}
                           </div>
                         </div>
-                        <div className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full font-bold">
+                        <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold border border-purple-200">
                           {participant.total_points} pts
                         </div>
                       </div>
@@ -644,16 +643,18 @@ function TeacherDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="mt-6 bg-white/10 backdrop-blur-lg border border-white/20">
+            <Card className="mt-6 bg-white/90 backdrop-blur-lg border border-slate-300">
               <CardHeader>
-                <CardTitle className="text-white text-xl flex items-center gap-2">👥 All Participants</CardTitle>
+                <CardTitle className="text-slate-800 text-xl flex items-center gap-2">
+                  👥 Todos los Participantes
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {participants.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-white/70">👋 Waiting for students to join...</p>
+                    <p className="text-slate-600">👋 Esperando que se unan estudiantes...</p>
                     {activeSession && (
-                      <p className="text-white/50 text-sm mt-2">Share code: {activeSession.session_code}</p>
+                      <p className="text-slate-500 text-sm mt-2">Comparte el código: {activeSession.session_code}</p>
                     )}
                   </div>
                 ) : (
@@ -662,9 +663,9 @@ function TeacherDashboard() {
                       <div key={participant.id} className="flex items-center justify-between p-2 text-sm">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                          <span className="text-white">{participant.student_name}</span>
+                          <span className="text-slate-800">{participant.student_name}</span>
                         </div>
-                        <div className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-xs">
+                        <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs border border-blue-200">
                           {participant.total_points} pts
                         </div>
                       </div>
