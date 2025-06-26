@@ -17,7 +17,6 @@ class SocketManager {
     console.log("🔌 Connecting to Socket.IO server...")
 
     this.socket = io(SOCKET_SERVER_URL, {
-      path: "/api/socket.io",
       transports: ["websocket", "polling"],
       timeout: 10000,
       reconnection: true,

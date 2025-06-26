@@ -8,15 +8,46 @@ const app = express();
 const server = createServer(app);
 
 // Configuración de CORS para Express
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://quiztionario.vercel.app",
+  "https://quiztionario-git-main-gianquarantas-projects.vercel.app",
+  "https://quiztionario-*-gianquarantas-projects.vercel.app"
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: function (origin, callback) {
+    // Permitir requests sin origin (como mobile apps o Postman)
+    if (!origin) return callback(null, true);
+    
+    // Verificar si el origin está en la lista permitida o es un preview de Vercel
+    if (allowedOrigins.includes(origin) || 
+        origin.includes('vercel.app') || 
+        origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('No permitido por CORS'));
+  },
   credentials: true
 }));
 
 // Configuración de Socket.IO con CORS
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: function (origin, callback) {
+      // Permitir requests sin origin
+      if (!origin) return callback(null, true);
+      
+      // Verificar si el origin está permitido
+      if (allowedOrigins.includes(origin) || 
+          origin.includes('vercel.app') || 
+          origin.includes('localhost')) {
+        return callback(null, true);
+      }
+      
+      callback(new Error('No permitido por CORS'));
+    },
     methods: ["GET", "POST"],
     credentials: true
   },
