@@ -263,6 +263,7 @@ function TeacherDashboard() {
     setResponses([])
 
     console.log("🚀 Iniciando pregunta:", question.question_text)
+    console.log("📡 Código de sesión:", activeSession?.session_code)
 
     if (activeSession) {
       // Emitir a todos los estudiantes
@@ -291,6 +292,7 @@ function TeacherDashboard() {
     setQuestionActive(false)
 
     if (activeSession) {
+      console.log("📡 Enviando pausa a sesión:", activeSession.session_code)
       emit("teacher-pause-question", activeSession.session_code)
     }
 
@@ -754,7 +756,7 @@ function TeacherDashboard() {
                           className="flex-1 border-orange-300 text-orange-700 hover:bg-orange-50"
                         >
                           <Pause className="w-4 h-4 mr-2" />
-                          Pausar Pregunta
+                          ⏸️ Pausar Pregunta
                         </Button>
                         <Button
                           onClick={endQuestion}

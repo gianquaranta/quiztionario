@@ -90,6 +90,7 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
     case "CLEAR_RESPONSES":
       return { ...state, responses: [] }
     case "SET_CURRENT_QUESTION":
+      console.log("📝 Estableciendo pregunta actual:", action.payload.question.question_text)
       return {
         ...state,
         currentQuestion: action.payload.question,
@@ -99,6 +100,7 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
     case "SET_QUESTION_ACTIVE":
       if (!action.payload) {
         // Si se desactiva la pregunta, limpiar todo
+        console.log("🛑 Desactivando pregunta y limpiando estado")
         return {
           ...state,
           questionActive: false,
@@ -175,13 +177,13 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
 
     // Eventos para estudiantes
     socket.on("question-started", (data: { question: any; startTime: number; sessionCode: string }) => {
-      console.log("❓ Pregunta iniciada:", data)
+      console.log("❓ Pregunta iniciada recibida:", data)
       dispatch({ type: "SET_CURRENT_QUESTION", payload: { question: data.question, startTime: data.startTime } })
       dispatch({ type: "SET_SESSION_CODE", payload: data.sessionCode })
     })
 
     socket.on("question-ended", () => {
-      console.log("⏹️ Pregunta terminada")
+      console.log("⏹️ Pregunta terminada/pausada")
       dispatch({ type: "SET_QUESTION_ACTIVE", payload: false })
     })
 
