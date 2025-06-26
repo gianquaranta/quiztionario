@@ -134,16 +134,16 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     })
 
     socket.on("new-response", (responseData: any) => {
-      console.log("📨 Nueva respuesta recibida:", responseData)
-
-      const response: Response = {
-        id: responseData.id || `${responseData.participant?.id}-${Date.now()}`,
-        participant: responseData.participant,
-        responseTime: responseData.responseTime,
-        timestamp: Date.now(),
-      }
-
-      dispatch({ type: "ADD_RESPONSE", payload: response })
+      console.log("📨 Nueva respuesta recibida en contexto:", responseData)
+      dispatch({
+        type: "ADD_RESPONSE",
+        payload: {
+          id: responseData.responseId || responseData.id || `${responseData.participant?.id}-${Date.now()}`,
+          participant: responseData.participant,
+          responseTime: responseData.responseTime,
+          timestamp: Date.now(),
+        },
+      })
     })
 
     socket.on("points-awarded", ({ participantId, totalPoints }: { participantId: string; totalPoints: number }) => {

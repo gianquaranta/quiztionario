@@ -141,6 +141,34 @@ export default function StudentPage() {
     }
   }
 
+  const respondToQuestion = async () => {
+    if (!currentQuestion || !participant) return
+
+    const time = Date.now() - currentQuestion.startTime
+    setResponseTime(time)
+    setHasResponded(true)
+
+    try {
+      const response = await db.recordStudentResponse(sessionData.id, participant.id, currentQuestion.id, time)
+
+      emit("student-response", sessionData.session_code, {
+        participantId: participant.id,
+        responseTime: time,
+        participant: participant,
+        responseId: response.id,
+      })
+
+      console.log("📤 Respuesta enviada desde estudiante:", {
+        participantId: participant.id,
+        responseTime: time,
+        sessionCode: sessionData.session_code,
+      })
+    } catch (error) {
+      console.error("Error recording student response:", error)
+      setHasResponded(false)
+    }
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
       <h1 className="text-2xl font-bold">Student Page</h1>
