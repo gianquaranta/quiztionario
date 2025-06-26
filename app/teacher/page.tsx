@@ -45,7 +45,7 @@ export default function TeacherPage() {
           className="absolute inset-0 opacity-10"
           style={{
             backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fillRule='evenodd'%3E%3Cg fill='%23475569' fillOpacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+              "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fillRule='evenodd'%3E%3Cg fill='%23475569' fillOpacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E\")",
           }}
         />
 
@@ -283,6 +283,11 @@ function TeacherDashboard() {
         }
       }
 
+      // Marcar que ya se otorgaron puntos para esta pregunta
+      setQuestionActive(false)
+      setCurrentQuestion(null)
+      setResponses([])
+
       console.log(`🏆 Se otorgaron ${points} puntos al participante ${participantId}`)
     } catch (error) {
       console.error("❌ Error al otorgar puntos:", error)
@@ -503,6 +508,17 @@ function TeacherDashboard() {
                     ✨ Crear Nuevo Quiz
                   </Button>
                 </div>
+                {activeSession && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-3">
+                    <p className="text-green-700 font-medium">
+                      🎯 <strong>Sesión Activa:</strong> {activeSession.quiz?.title}
+                    </p>
+                    <p className="text-green-600 text-sm">
+                      Código: <strong>{activeSession.session_code}</strong> •{participants.length} estudiantes
+                      conectados
+                    </p>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 {quizzes.length === 0 ? (
@@ -514,11 +530,26 @@ function TeacherDashboard() {
                     {quizzes.map((quiz) => (
                       <div
                         key={quiz.id}
-                        className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-all"
+                        className={`flex items-center justify-between p-4 border rounded-lg transition-all ${
+                          activeSession?.quiz?.id === quiz.id
+                            ? "border-green-300 bg-green-50 shadow-md"
+                            : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                        }`}
                       >
                         <div>
-                          <h3 className="font-medium text-slate-800 text-lg">{quiz.title}</h3>
-                          <p className="text-slate-600">
+                          <h3
+                            className={`font-medium text-lg ${
+                              activeSession?.quiz?.id === quiz.id ? "text-green-800" : "text-slate-800"
+                            }`}
+                          >
+                            {quiz.title}
+                            {activeSession?.quiz?.id === quiz.id && (
+                              <span className="ml-2 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">
+                                ACTIVO
+                              </span>
+                            )}
+                          </h3>
+                          <p className={activeSession?.quiz?.id === quiz.id ? "text-green-600" : "text-slate-600"}>
                             {quiz.questions?.length || 0} preguntas • {quiz.description || "¡Listo para lanzar!"}
                           </p>
                         </div>
@@ -528,11 +559,11 @@ function TeacherDashboard() {
                           disabled={loading || activeSession?.quiz?.id === quiz.id}
                           className={
                             activeSession?.quiz?.id === quiz.id
-                              ? "bg-green-500"
+                              ? "bg-green-500 cursor-not-allowed"
                               : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                           }
                         >
-                          {activeSession?.quiz?.id === quiz.id ? "🔥 Activo" : loading ? "Iniciando..." : "🚀 Lanzar"}
+                          {activeSession?.quiz?.id === quiz.id ? "🔥 En Uso" : loading ? "Iniciando..." : "🚀 Lanzar"}
                         </Button>
                       </div>
                     ))}
@@ -588,6 +619,11 @@ function TeacherDashboard() {
                     ⚡ Resultados en Vivo
                   </CardTitle>
                   <CardDescription className="text-slate-600 text-lg">{currentQuestion.question_text}</CardDescription>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
+                    <p className="text-amber-700 text-sm font-medium">
+                      💡 Otorga puntos al estudiante más rápido. Una vez otorgados, la pregunta se cerrará.
+                    </p>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {responses.length === 0 ? (
@@ -597,16 +633,27 @@ function TeacherDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <p className="text-blue-700 text-sm">
+                          📊 <strong>{responses.length}</strong> estudiantes han respondido. Otorga puntos al más rápido
+                          para cerrar la pregunta.
+                        </p>
+                      </div>
+
                       {responses.slice(0, 10).map((response, index) => (
                         <div
                           key={response.id || index}
-                          className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-white/80"
+                          className={`flex items-center justify-between p-4 border rounded-lg transition-all ${
+                            index === 0
+                              ? "border-green-300 bg-green-50 shadow-md"
+                              : "border-slate-200 bg-white/80 opacity-75"
+                          }`}
                         >
                           <div className="flex items-center gap-4">
                             <div
                               className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                                 index === 0
-                                  ? "bg-yellow-500 text-black"
+                                  ? "bg-yellow-500 text-black animate-pulse"
                                   : index === 1
                                     ? "bg-gray-400 text-white"
                                     : index === 2
@@ -617,38 +664,57 @@ function TeacherDashboard() {
                               {index + 1}
                             </div>
                             <div>
-                              <p className="font-medium text-slate-800 text-lg">
+                              <p className={`font-medium text-lg ${index === 0 ? "text-green-800" : "text-slate-800"}`}>
                                 {response.participant?.student_name || "Estudiante Desconocido"}
                               </p>
-                              <p className="text-slate-600">⚡ {(response.responseTime / 1000).toFixed(2)}s</p>
+                              <p className={index === 0 ? "text-green-600" : "text-slate-600"}>
+                                ⚡ {(response.responseTime / 1000).toFixed(2)}s
+                              </p>
                             </div>
-                            {index < 3 && (
-                              <span className="text-2xl">{index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}</span>
+                            {index === 0 && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl animate-bounce">🥇</span>
+                                <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm font-bold border border-green-300">
+                                  ¡MÁS RÁPIDO!
+                                </span>
+                              </div>
+                            )}
+                            {index < 3 && index > 0 && (
+                              <span className="text-2xl opacity-50">{index === 1 ? "🥈" : "🥉"}</span>
                             )}
                           </div>
-                          <div className="flex gap-2">
-                            {[1, 2, 3].slice(0, currentQuestion.max_points).map((points) => (
-                              <Button
-                                key={points}
-                                size="sm"
-                                variant="outline"
-                                onClick={() => awardPoints(response.participant?.id, points)}
-                                className="border-slate-300 text-slate-700 hover:bg-slate-100"
-                              >
-                                <Trophy className="w-3 h-3 mr-1" />
-                                {points} pt{points > 1 ? "s" : ""}
-                              </Button>
-                            ))}
-                          </div>
+
+                          {/* Solo mostrar botones para el primero */}
+                          {index === 0 ? (
+                            <div className="flex gap-2">
+                              {[1, 2, 3].slice(0, currentQuestion.max_points).map((points) => (
+                                <Button
+                                  key={points}
+                                  size="sm"
+                                  onClick={() => awardPoints(response.participant?.id, points)}
+                                  className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 shadow-lg"
+                                >
+                                  <Trophy className="w-3 h-3 mr-1" />
+                                  Dar {points} pt{points > 1 ? "s" : ""}
+                                </Button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-slate-400 text-sm">Esperando...</div>
+                          )}
                         </div>
                       ))}
-                      <Button
-                        onClick={endQuestion}
-                        className="w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
-                      >
-                        <Square className="w-4 h-4 mr-2" />
-                        Terminar Pregunta
-                      </Button>
+
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          onClick={endQuestion}
+                          variant="outline"
+                          className="flex-1 border-slate-300 text-slate-700 hover:bg-slate-100"
+                        >
+                          <Square className="w-4 h-4 mr-2" />
+                          Cerrar sin Puntos
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>
