@@ -221,42 +221,62 @@ export const db = {
   },
 
   async recordStudentResponse(sessionId: string, participantId: string, questionId: string, responseTime: number) {
-    const { data, error } = await supabase
-      .from("student_responses")
-      .insert({
-        session_id: sessionId,
-        participant_id: participantId,
-        question_id: questionId,
-        response_time: responseTime,
-      })
-      .select()
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from("student_responses")
+        .insert({
+          session_id: sessionId,
+          participant_id: participantId,
+          question_id: questionId,
+          response_time: responseTime,
+        })
+        .select()
+        .single()
 
-    if (error) throw error
-    return data as StudentResponse
+      if (error) {
+        console.error("Error al insertar respuesta:", error)
+        throw error
+      }
+      return data as StudentResponse
+    } catch (error) {
+      console.error("Error en recordStudentResponse:", error)
+      throw error
+    }
   },
 
   async awardPoints(responseId: string, points: number, rankPosition: number) {
-    const { data, error } = await supabase
-      .from("student_responses")
-      .update({
-        points_awarded: points,
-        rank_position: rankPosition,
+    try {
+      const { data, error } = await supabase
+        .from("student_responses")
+        .update({
+          points_awarded: points,
+          rank_position: rankPosition,
+        })
+        .eq("id", responseId)
+        .select()
+        .single()
+
+      if (error) {
+        console.error("Error al actualizar puntos:", error)
+        throw error
+      }
+
+      // Update participant total points using the stored function
+      const response = data as StudentResponse
+      const { error: updateError } = await supabase.rpc("update_participant_points", {
+        p_participant_id: response.participant_id,
       })
-      .eq("id", responseId)
-      .select()
-      .single()
 
-    if (error) throw error
+      if (updateError) {
+        console.error("Error al actualizar puntos totales:", updateError)
+        throw updateError
+      }
 
-    // Update participant total points
-    const response = data as StudentResponse
-    const { error: updateError } = await supabase.rpc("update_participant_points", {
-      p_participant_id: response.participant_id,
-    })
-
-    if (updateError) throw updateError
-    return response
+      return response
+    } catch (error) {
+      console.error("Error en awardPoints:", error)
+      throw error
+    }
   },
 
   async endSession(sessionId: string) {
