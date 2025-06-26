@@ -134,14 +134,24 @@ export default function StudentPage() {
   }, [state.questionActive, state.currentQuestion])
 
   // Actualizar participante cuando cambie el estado
-  useEffect(() => {
-    if (currentParticipant) {
-      const updatedParticipant = state.students.find((s) => s.id === currentParticipant.id)
-      if (updatedParticipant) {
-        setCurrentParticipant(updatedParticipant)
+useEffect(() => {
+  if (currentParticipant) {
+    const updatedParticipant = state.students.find((s) => s.id === currentParticipant.id);
+    if (updatedParticipant) {
+      const newParticipant = {
+        ...updatedParticipant,
+        session_id: currentParticipant.session_id,
+        joined_at: currentParticipant.joined_at,
+        is_connected: updatedParticipant.is_connected ?? currentParticipant.is_connected,
+      };
+
+      // Only update state if the new participant data is different
+      if (JSON.stringify(newParticipant) !== JSON.stringify(currentParticipant)) {
+        setCurrentParticipant(newParticipant);
       }
     }
-  }, [state.students, currentParticipant])
+  }
+}, [state.students, currentParticipant]);
 
   if (!isJoined) {
     return (
