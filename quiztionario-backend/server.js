@@ -7,6 +7,15 @@ require('dotenv').config();
 const app = express();
 const server = createServer(app);
 
+// Middleware para parsear JSON
+app.use(express.json());
+
+// Middleware de logging para debug
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
 // Configuración de CORS para Express
 const allowedOrigins = [
   "http://localhost:3000",
@@ -53,7 +62,8 @@ const io = new Server(server, {
   },
   transports: ['websocket', 'polling'],
   pingTimeout: 60000,
-  pingInterval: 25000
+  pingInterval: 25000,
+  allowEIO3: true
 });
 
 // Almacenamiento en memoria para los quizzes (en producción usa una base de datos)
@@ -75,11 +85,74 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'Quiztionario Backend Server',
     version: '1.0.0',
+    status: 'running',
+    socketIO: 'available at /socket.io',
     endpoints: {
       health: '/health',
-      socket: '/socket.io'
+      socket: '/socket.io',
+      test: '/test-socket'
     }
   });
+});
+
+// Ruta de prueba para Socket.IO
+app.get('/test-socket', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Socket.IO Test</title>
+        <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    </head>
+    <body>
+        <h1>Socket.IO Connection Test</h1>
+        <div id="status">Connecting...</div>
+        <button onclick="testConnection()">Test Connection</button>
+        <div id="logs"></div>
+        
+        <script>
+            let socket;
+            
+            function addLog(message) {
+                const div = document.createElement('div');
+                div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+                document.getElementById('logs').appendChild(div);
+                console.log(message);
+            }
+            
+            function testConnection() {
+                const status = document.getElementById('status');
+                status.textContent = 'Connecting...';
+                
+                socket = io(window.location.origin, {
+                    transports: ['websocket', 'polling']
+                });
+                
+                socket.on('connect', () => {
+                    status.textContent = '✅ Connected: ' + socket.id;
+                    status.style.color = 'green';
+                    addLog('Connected successfully');
+                });
+                
+                socket.on('disconnect', () => {
+                    status.textContent = '❌ Disconnected';
+                    status.style.color = 'red';
+                    addLog('Disconnected');
+                });
+                
+                socket.on('connect_error', (error) => {
+                    status.textContent = '❌ Error: ' + error.message;
+                    status.style.color = 'red';
+                    addLog('Connection error: ' + error.message);
+                });
+            }
+            
+            // Auto conectar al cargar
+            window.onload = testConnection;
+        </script>
+    </body>
+    </html>
+  `);
 });
 
 // Funciones utilitarias
