@@ -396,7 +396,7 @@ function TeacherDashboard() {
         <div className="max-w-2xl mx-auto">
           <Card className="bg-white/90 backdrop-blur-lg border border-slate-300 shadow-xl">
             <CardHeader>
-              <CardTitle className="text-slate-800 text-2xl">🎯 Crear Nuevo Quiz</CardTitle>
+              <CardTitle className="text-slate-800 text-xl md:text-2xl">🎯 Crear Nuevo Quiz</CardTitle>
               <CardDescription className="text-slate-600">
                 Diseña preguntas que desafíen a tus estudiantes
               </CardDescription>
@@ -473,7 +473,7 @@ function TeacherDashboard() {
                 ➕ Agregar Otra Pregunta
               </Button>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button
                   onClick={createQuiz}
                   disabled={loading}
@@ -497,40 +497,47 @@ function TeacherDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-4xl font-bold text-slate-800">🎓 Panel de Control Docente</h1>
-            <p className="text-slate-600 text-lg">Controla el universo de quizzes desde aquí</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 p-2 md:p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 md:mb-6 gap-4">
+          <div className="w-full lg:w-auto">
+            <h1 className="text-2xl md:text-4xl font-bold text-slate-800">🎓 Panel Quiztionario</h1>
+            <p className="text-slate-600 text-sm md:text-lg">Controla el universo de quizzes desde aquí</p>
             {activeSession && (
-              <div className="mt-2 flex items-center gap-4">
-                <div className="bg-green-100 text-green-700 px-4 py-2 rounded-full font-bold text-lg border border-green-200 flex items-center gap-2">
-                  📡 Código de Sesión: {activeSession.session_code}
+              <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                <div className="bg-green-100 text-green-700 px-3 py-1 md:px-4 md:py-2 rounded-full font-bold text-sm md:text-lg border border-green-200 flex items-center gap-2">
+                  📡 Código: {activeSession.session_code}
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={copySessionCode}
-                    className="h-6 w-6 p-0 hover:bg-green-200"
+                    className="h-5 w-5 md:h-6 md:w-6 p-0 hover:bg-green-200"
                   >
                     <Copy className="w-3 h-3" />
                   </Button>
                 </div>
-                <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm border border-blue-200">
-                  <Users className="w-4 h-4 inline mr-1" />
-                  {participants.length} Estudiantes Conectados
+                <div className="bg-blue-100 text-blue-700 px-2 py-1 md:px-3 md:py-1 rounded-full text-xs md:text-sm border border-blue-200">
+                  <Users className="w-3 h-3 md:w-4 md:h-4 inline mr-1" />
+                  {participants.length} Estudiantes
                 </div>
               </div>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
             {activeSession && (
-              <Button onClick={endSession} variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+              <Button
+                onClick={endSession}
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-50 text-sm"
+              >
                 🛑 Terminar Sesión
               </Button>
             )}
             <Link href="/">
-              <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-100">
+              <Button
+                variant="outline"
+                className="border-slate-300 text-slate-700 hover:bg-slate-100 w-full sm:w-auto text-sm"
+              >
                 <Home className="w-4 h-4 mr-2" />
                 Inicio
               </Button>
@@ -538,26 +545,26 @@ function TeacherDashboard() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
           {/* Gestión de Quizzes */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
             <Card className="bg-white/90 backdrop-blur-lg border border-slate-300">
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-slate-800 text-xl">📚 Mi Colección de Quizzes</CardTitle>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <CardTitle className="text-slate-800 text-lg md:text-xl">📚 Mi Colección de Quizzes</CardTitle>
                   <Button
                     onClick={() => setShowCreateQuiz(true)}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-sm w-full sm:w-auto"
                   >
                     ✨ Crear Nuevo Quiz
                   </Button>
                 </div>
                 {activeSession && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-3">
-                    <p className="text-green-700 font-medium">
+                    <p className="text-green-700 font-medium text-sm md:text-base">
                       🎯 <strong>Sesión Activa:</strong> {activeSession.quiz?.title}
                     </p>
-                    <p className="text-green-600 text-sm">
+                    <p className="text-green-600 text-xs md:text-sm">
                       Código: <strong>{activeSession.session_code}</strong> • {participants.length} estudiantes
                       conectados
                     </p>
@@ -567,22 +574,24 @@ function TeacherDashboard() {
               <CardContent>
                 {quizzes.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-slate-600 text-lg">🎯 Aún no hay quizzes - ¡crea tu primera obra maestra!</p>
+                    <p className="text-slate-600 text-sm md:text-lg">
+                      🎯 Aún no hay quizzes - ¡crea tu primera obra maestra!
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {quizzes.map((quiz) => (
                       <div
                         key={quiz.id}
-                        className={`flex items-center justify-between p-4 border rounded-lg transition-all ${
+                        className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 border rounded-lg transition-all gap-3 ${
                           activeSession?.quiz?.id === quiz.id
                             ? "border-green-300 bg-green-50 shadow-md"
                             : "border-slate-200 bg-slate-50 hover:bg-slate-100"
                         }`}
                       >
-                        <div>
+                        <div className="flex-1">
                           <h3
-                            className={`font-medium text-lg ${
+                            className={`font-medium text-base md:text-lg ${
                               activeSession?.quiz?.id === quiz.id ? "text-green-800" : "text-slate-800"
                             }`}
                           >
@@ -593,7 +602,9 @@ function TeacherDashboard() {
                               </span>
                             )}
                           </h3>
-                          <p className={activeSession?.quiz?.id === quiz.id ? "text-green-600" : "text-slate-600"}>
+                          <p
+                            className={`text-sm ${activeSession?.quiz?.id === quiz.id ? "text-green-600" : "text-slate-600"}`}
+                          >
                             {quiz.questions?.length || 0} preguntas • {quiz.description || "¡Listo para lanzar!"}
                           </p>
                         </div>
@@ -601,11 +612,11 @@ function TeacherDashboard() {
                           onClick={() => startQuizSession(quiz)}
                           size="sm"
                           disabled={loading || activeSession?.quiz?.id === quiz.id}
-                          className={
+                          className={`w-full sm:w-auto text-sm ${
                             activeSession?.quiz?.id === quiz.id
                               ? "bg-green-500 cursor-not-allowed"
                               : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-                          }
+                          }`}
                         >
                           {activeSession?.quiz?.id === quiz.id ? "🔥 En Uso" : loading ? "Iniciando..." : "🚀 Lanzar"}
                         </Button>
@@ -620,21 +631,21 @@ function TeacherDashboard() {
             {activeSession && activeSession.quiz && (
               <Card className="bg-white/90 backdrop-blur-lg border border-slate-300">
                 <CardHeader>
-                  <CardTitle className="text-slate-800 text-xl flex items-center gap-2">
+                  <CardTitle className="text-slate-800 text-lg md:text-xl flex items-center gap-2">
                     🎮 Quiz Activo: {activeSession.quiz.title}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  <div className="space-y-3 md:space-y-4">
                     {activeSession.quiz.questions?.map((question) => (
                       <div
                         key={question.id}
-                        className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-all"
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 transition-all gap-3"
                       >
                         <div className="flex-1">
-                          <p className="font-medium text-slate-800">{question.question_text}</p>
+                          <p className="font-medium text-slate-800 text-sm md:text-base">{question.question_text}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-sm border border-amber-200">
+                            <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs md:text-sm border border-amber-200">
                               🏆 Máx {question.max_points} puntos
                             </span>
                           </div>
@@ -643,9 +654,9 @@ function TeacherDashboard() {
                           onClick={() => startQuestion(question)}
                           disabled={questionActive}
                           size="sm"
-                          className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
+                          className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 w-full sm:w-auto text-sm"
                         >
-                          <Play className="w-4 h-4 mr-1" />
+                          <Play className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                           Hacer Pregunta
                         </Button>
                       </div>
@@ -659,55 +670,55 @@ function TeacherDashboard() {
             {questionActive && currentQuestion && (
               <Card className="bg-gradient-to-r from-green-50 to-blue-50 backdrop-blur-lg border border-green-200">
                 <CardHeader>
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                     <div>
-                      <CardTitle className="text-slate-800 text-xl flex items-center gap-2">
+                      <CardTitle className="text-slate-800 text-lg md:text-xl flex items-center gap-2">
                         ⚡ Resultados en Vivo
                       </CardTitle>
-                      <CardDescription className="text-slate-600 text-lg">
+                      <CardDescription className="text-slate-600 text-sm md:text-lg">
                         {currentQuestion.question_text}
                       </CardDescription>
                     </div>
                     <Button
                       onClick={pauseQuestion}
                       variant="outline"
-                      className="border-orange-300 text-orange-700 hover:bg-orange-50 font-bold"
+                      className="border-orange-300 text-orange-700 hover:bg-orange-50 font-bold text-sm w-full sm:w-auto"
                     >
-                      <Pause className="w-4 h-4 mr-2" />
-                      ⏸️ Pausar Pregunta
+                      <Pause className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                      ⏸️ Pausar
                     </Button>
                   </div>
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
-                    <p className="text-amber-700 text-sm font-medium">
-                      💡 Otorga puntos al estudiante más rápido. Una vez otorgados, la pregunta se cerrará.
+                    <p className="text-amber-700 text-xs md:text-sm font-medium">
+                      💡 Puedes otorgar puntos a cualquier estudiante que haya respondido, no solo al primero.
                     </p>
                   </div>
                 </CardHeader>
                 <CardContent>
                   {responses.length === 0 ? (
                     <div className="text-center py-8">
-                      <div className="animate-pulse text-4xl mb-4">⏱️</div>
-                      <p className="text-slate-600 text-lg">Esperando respuestas súper rápidas...</p>
+                      <div className="animate-pulse text-3xl md:text-4xl mb-4">⏱️</div>
+                      <p className="text-slate-600 text-sm md:text-lg">Esperando respuestas súper rápidas...</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                        <p className="text-blue-700 text-sm">
-                          📊 <strong>{responses.length}</strong> estudiantes han respondido. Otorga puntos al más rápido
-                          para cerrar la pregunta.
+                        <p className="text-blue-700 text-xs md:text-sm">
+                          📊 <strong>{responses.length}</strong> estudiantes han respondido. Puedes otorgar puntos a
+                          cualquiera.
                         </p>
                       </div>
 
                       {responses.slice(0, 10).map((response, index) => (
                         <div
                           key={response.id || index}
-                          className={`flex items-center justify-between p-4 border rounded-lg transition-all ${
+                          className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 border rounded-lg transition-all gap-3 ${
                             index === 0 ? "border-green-300 bg-green-50 shadow-md" : "border-slate-200 bg-white/80"
                           }`}
                         >
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 md:gap-4">
                             <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                              className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold text-sm ${
                                 index === 0
                                   ? "bg-yellow-500 text-black animate-pulse"
                                   : index === 1
@@ -720,34 +731,36 @@ function TeacherDashboard() {
                               {index + 1}
                             </div>
                             <div>
-                              <p className={`font-medium text-lg ${index === 0 ? "text-green-800" : "text-slate-800"}`}>
+                              <p
+                                className={`font-medium text-sm md:text-lg ${index === 0 ? "text-green-800" : "text-slate-800"}`}
+                              >
                                 {response.participant?.student_name || "Estudiante Desconocido"}
                               </p>
-                              <p className={index === 0 ? "text-green-600" : "text-slate-600"}>
+                              <p className={`text-xs md:text-sm ${index === 0 ? "text-green-600" : "text-slate-600"}`}>
                                 ⚡ {(response.responseTime / 1000).toFixed(2)}s
                               </p>
                             </div>
                             {index === 0 && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl animate-bounce">🥇</span>
-                                <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm font-bold border border-green-300">
+                              <div className="hidden sm:flex items-center gap-2">
+                                <span className="text-xl md:text-2xl animate-bounce">🥇</span>
+                                <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold border border-green-300">
                                   ¡MÁS RÁPIDO!
                                 </span>
                               </div>
                             )}
                             {index < 3 && index > 0 && (
-                              <span className="text-2xl opacity-50">{index === 1 ? "🥈" : "🥉"}</span>
+                              <span className="text-lg md:text-2xl opacity-50">{index === 1 ? "🥈" : "🥉"}</span>
                             )}
                           </div>
 
                           {/* Mostrar botones para TODOS los que respondieron */}
-                          <div className="flex gap-2">
+                          <div className="flex gap-1 md:gap-2 w-full sm:w-auto">
                             {[1, 2, 3].slice(0, currentQuestion.max_points).map((points) => (
                               <Button
                                 key={points}
                                 size="sm"
                                 onClick={() => awardPoints(response.participant?.id, points)}
-                                className={`${
+                                className={`flex-1 sm:flex-none text-xs ${
                                   index === 0
                                     ? "bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 shadow-lg"
                                     : "bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600"
@@ -765,9 +778,9 @@ function TeacherDashboard() {
                         <Button
                           onClick={endQuestion}
                           variant="outline"
-                          className="w-full border-red-300 text-red-700 hover:bg-red-50"
+                          className="w-full border-red-300 text-red-700 hover:bg-red-50 text-sm"
                         >
-                          <Square className="w-4 h-4 mr-2" />🛑 Cerrar Pregunta Definitivamente
+                          <Square className="w-3 h-3 md:w-4 md:h-4 mr-2" />🛑 Cerrar Pregunta Definitivamente
                         </Button>
                       </div>
                     </div>
@@ -778,26 +791,28 @@ function TeacherDashboard() {
           </div>
 
           {/* Rankings de Estudiantes y Participantes */}
-          <div>
+          <div className="space-y-4 md:space-y-6">
             <Card className="bg-white/90 backdrop-blur-lg border border-slate-300">
               <CardHeader>
-                <CardTitle className="text-slate-800 text-xl flex items-center gap-2">🏆 Tabla de Posiciones</CardTitle>
+                <CardTitle className="text-slate-800 text-lg md:text-xl flex items-center gap-2">
+                  🏆 Tabla de Posiciones
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {leaderboard.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-slate-600">🎯 Aún no hay campeones - ¡comienza a otorgar puntos!</p>
+                    <p className="text-slate-600 text-sm">🎯 Aún no hay campeones - ¡comienza a otorgar puntos!</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {leaderboard.map((participant, index) => (
                       <div
                         key={participant.id}
-                        className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-slate-50"
+                        className="flex items-center justify-between p-2 md:p-3 border border-slate-200 rounded-lg bg-slate-50"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 md:gap-3">
                           <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                            className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold text-sm ${
                               index === 0
                                 ? "bg-yellow-500 text-black"
                                 : index === 1
@@ -810,11 +825,13 @@ function TeacherDashboard() {
                             {index + 1}
                           </div>
                           <div>
-                            <p className="font-medium text-slate-800">{participant.student_name}</p>
-                            {index === 0 && <span className="text-amber-600 text-sm">👑 ¡Campeón del Quiz!</span>}
+                            <p className="font-medium text-slate-800 text-sm md:text-base">
+                              {participant.student_name}
+                            </p>
+                            {index === 0 && <span className="text-amber-600 text-xs">👑 ¡Campeón del Quiz!</span>}
                           </div>
                         </div>
-                        <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold border border-purple-200">
+                        <div className="bg-purple-100 text-purple-700 px-2 py-1 md:px-3 md:py-1 rounded-full font-bold border border-purple-200 text-xs md:text-sm">
                           {participant.total_points} pts
                         </div>
                       </div>
@@ -824,24 +841,24 @@ function TeacherDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="mt-6 bg-white/90 backdrop-blur-lg border border-slate-300">
+            <Card className="bg-white/90 backdrop-blur-lg border border-slate-300">
               <CardHeader>
-                <CardTitle className="text-slate-800 text-xl flex items-center gap-2">
+                <CardTitle className="text-slate-800 text-lg md:text-xl flex items-center gap-2">
                   👥 Todos los Participantes
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {participants.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-slate-600">👋 Esperando que se unan estudiantes...</p>
+                    <p className="text-slate-600 text-sm">👋 Esperando que se unan estudiantes...</p>
                     {activeSession && (
-                      <p className="text-slate-500 text-sm mt-2">Comparte el código: {activeSession.session_code}</p>
+                      <p className="text-slate-500 text-xs mt-2">Comparte el código: {activeSession.session_code}</p>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {participants.map((participant) => (
-                      <div key={participant.id} className="flex items-center justify-between p-2 text-sm">
+                      <div key={participant.id} className="flex items-center justify-between p-2 text-xs md:text-sm">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-green-400"></div>
                           <span className="text-slate-800">{participant.student_name}</span>

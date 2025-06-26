@@ -7,9 +7,9 @@ import { QuizProvider } from "@/lib/quiz-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "QuizMaster - Interactive Quiz Platform",
-  description: "Real-time quiz platform for teachers and students",
-    generator: 'v0.dev'
+  title: "Quiztionario - Plataforma de Quiz Interactiva",
+  description: "Plataforma de quiz en tiempo real para profesores y estudiantes",
+  generator: "v0.dev",
 }
 
 export default function RootLayout({

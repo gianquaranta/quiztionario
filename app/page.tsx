@@ -1,148 +1,131 @@
-"use client"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Sparkles, Trophy, Zap, Settings } from "lucide-react"
-import Link from "next/link"
+import { GraduationCap, Users, Zap, Trophy, Star, BookOpen } from "lucide-react"
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 relative overflow-hidden">
-      {/* Elementos de fondo más sutiles */}
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 relative overflow-hidden">
+      {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-4 -left-4 w-72 h-72 bg-blue-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
-        <div className="absolute -top-4 -right-4 w-72 h-72 bg-indigo-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-slate-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
+        <div className="absolute top-1/4 left-1/4 w-32 h-32 md:w-64 md:h-64 bg-purple-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
+        <div className="absolute top-3/4 right-1/4 w-32 h-32 md:w-64 md:h-64 bg-yellow-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-32 h-32 md:w-64 md:h-64 bg-pink-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="container mx-auto p-8 relative z-10">
-        {/* Acceso discreto para profesores */}
-        <div className="absolute top-4 right-4">
-          <Link href="/teacher">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100/50 text-xs"
-            >
-              <Settings className="w-3 h-3 mr-1" />
-              Acceso Docente
-            </Button>
-          </Link>
-        </div>
-
-        <div className="text-center mb-12 pt-8">
-          <div className="flex justify-center items-center gap-3 mb-4">
-            <Sparkles className="w-10 h-10 text-blue-500 animate-pulse" />
-            <h1 className="text-5xl font-bold text-slate-800 drop-shadow-sm">QuizMaster</h1>
-            <Sparkles className="w-10 h-10 text-blue-500 animate-pulse" />
-          </div>
-          <p className="text-xl text-slate-600 drop-shadow-sm">🎯 La experiencia de quiz interactiva definitiva</p>
-          <div className="flex justify-center gap-6 mt-6">
-            <div className="flex items-center gap-2 text-slate-500">
-              <Zap className="w-4 h-4" />
-              <span>Súper Rápido</span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-500">
-              <Trophy className="w-4 h-4" />
-              <span>Competitivo</span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-500">
-              <Sparkles className="w-4 h-4" />
-              <span>Divertido</span>
+      <div className="relative z-10 container mx-auto px-4 py-8 md:py-16">
+        {/* Header */}
+        <div className="text-center mb-12 md:mb-16">
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <BookOpen className="w-8 h-8 md:w-10 md:h-10 text-white" />
             </div>
           </div>
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-gray-800 mb-4 md:mb-6">
+            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Quiztionario
+            </span>
+          </h1>
+          <p className="text-lg md:text-xl lg:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed px-4">
+            La plataforma de quiz interactiva que transforma el aprendizaje en una experiencia emocionante y competitiva
+          </p>
         </div>
 
-        {/* Solo el botón de estudiantes prominente */}
-        <div className="flex justify-center">
-          <Card className="w-full max-w-md hover:shadow-xl transition-all duration-300 transform hover:scale-105 bg-white/90 backdrop-blur-sm border border-slate-200 shadow-lg">
-            <CardHeader className="text-center">
-              <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-                <Users className="w-12 h-12 text-white" />
+        {/* Main action cards */}
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto mb-12 md:mb-16">
+          <Card className="group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+            <CardHeader className="text-center pb-4">
+              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <GraduationCap className="w-8 h-8 md:w-10 md:h-10 text-white" />
               </div>
-              <CardTitle className="text-2xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                🎮 Portal de Estudiantes
-              </CardTitle>
-              <CardDescription className="text-lg text-slate-600">
-                ¡Únete a la batalla de conocimiento y demuestra tus habilidades!
+              <CardTitle className="text-xl md:text-2xl text-gray-800">🎓 Soy Profesor</CardTitle>
+              <CardDescription className="text-base md:text-lg text-gray-600">
+                Crea y gestiona quizzes interactivos para tus estudiantes
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="text-center">
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center justify-center gap-2 text-sm md:text-base text-gray-600">
+                  <Zap className="w-4 h-4 text-yellow-500" />
+                  <span>Preguntas en tiempo real</span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm md:text-base text-gray-600">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span>Sistema de puntuación</span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm md:text-base text-gray-600">
+                  <Users className="w-4 h-4 text-blue-500" />
+                  <span>Gestión de estudiantes</span>
+                </div>
+              </div>
+              <Link href="/teacher">
+                <Button className="w-full h-12 md:h-14 text-base md:text-lg font-bold bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300">
+                  🚀 Acceder como Profesor
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+            <CardHeader className="text-center pb-4">
+              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <Users className="w-8 h-8 md:w-10 md:h-10 text-white" />
+              </div>
+              <CardTitle className="text-xl md:text-2xl text-gray-800">🎮 Soy Estudiante</CardTitle>
+              <CardDescription className="text-base md:text-lg text-gray-600">
+                Únete a un quiz y compite con tus compañeros
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center justify-center gap-2 text-sm md:text-base text-gray-600">
+                  <Star className="w-4 h-4 text-yellow-500" />
+                  <span>Respuestas rápidas</span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm md:text-base text-gray-600">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span>Tabla de posiciones</span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm md:text-base text-gray-600">
+                  <Zap className="w-4 h-4 text-green-500" />
+                  <span>Competencia en vivo</span>
+                </div>
+              </div>
               <Link href="/student">
-                <Button
-                  className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                  size="lg"
-                >
-                  ⚡ ¡Unirse al Quiz!
+                <Button className="w-full h-12 md:h-14 text-base md:text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300">
+                  🎯 Unirse a un Quiz
                 </Button>
               </Link>
             </CardContent>
           </Card>
         </div>
 
-        <div className="text-center mt-12">
-          <div className="inline-flex items-center gap-2 bg-white/40 backdrop-blur-sm rounded-full px-6 py-3 text-slate-600 border border-slate-200">
-            <Sparkles className="w-4 h-4" />
-            <span className="font-medium">Tiempo Real • Competitivo • Educativo</span>
-            <Sparkles className="w-4 h-4" />
-          </div>
-        </div>
-
-        {/* Información adicional más discreta */}
-        <div className="mt-16 text-center">
-          <h2 className="text-2xl font-semibold text-slate-700 mb-6">¿Cómo funciona?</h2>
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="bg-white/60 backdrop-blur-sm rounded-lg p-6 border border-slate-200">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">1️⃣</span>
-              </div>
-              <h3 className="font-semibold text-slate-700 mb-2">Ingresa el Código</h3>
-              <p className="text-slate-600 text-sm">Tu profesor te dará un código de 6 dígitos para unirte al quiz</p>
-            </div>
-            <div className="bg-white/60 backdrop-blur-sm rounded-lg p-6 border border-slate-200">
-              <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">2️⃣</span>
-              </div>
-              <h3 className="font-semibold text-slate-700 mb-2">Responde Rápido</h3>
-              <p className="text-slate-600 text-sm">
-                Presiona el botón lo más rápido posible cuando aparezca la pregunta
+        {/* Features section */}
+        <div className="text-center max-w-4xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8">¿Por qué elegir Quiztionario?</h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 md:p-6 shadow-lg">
+              <div className="text-3xl md:text-4xl mb-3">⚡</div>
+              <h3 className="font-bold text-base md:text-lg text-gray-800 mb-2">Tiempo Real</h3>
+              <p className="text-sm md:text-base text-gray-600">
+                Interacción instantánea entre profesores y estudiantes
               </p>
             </div>
-            <div className="bg-white/60 backdrop-blur-sm rounded-lg p-6 border border-slate-200">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">3️⃣</span>
-              </div>
-              <h3 className="font-semibold text-slate-700 mb-2">Gana Puntos</h3>
-              <p className="text-slate-600 text-sm">Los más rápidos obtienen más puntos y suben en el ranking</p>
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 md:p-6 shadow-lg">
+              <div className="text-3xl md:text-4xl mb-3">🎯</div>
+              <h3 className="font-bold text-base md:text-lg text-gray-800 mb-2">Fácil de Usar</h3>
+              <p className="text-sm md:text-base text-gray-600">Interfaz intuitiva diseñada para todos los niveles</p>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 md:p-6 shadow-lg sm:col-span-2 lg:col-span-1">
+              <div className="text-3xl md:text-4xl mb-3">🏆</div>
+              <h3 className="font-bold text-base md:text-lg text-gray-800 mb-2">Competitivo</h3>
+              <p className="text-sm md:text-base text-gray-600">
+                Sistema de puntos y rankings para motivar el aprendizaje
+              </p>
             </div>
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   )
 }
