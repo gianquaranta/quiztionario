@@ -38,6 +38,8 @@ export default function StudentPage() {
     setError("")
 
     try {
+      console.log("🎓 STUDENT ATTEMPTING TO JOIN:", studentName, sessionCode.toUpperCase())
+
       const session = await db.getSessionByCode(sessionCode.toUpperCase())
       if (!session) {
         setError("Sesión no encontrada. Verifica el código e intenta nuevamente.")
@@ -48,11 +50,12 @@ export default function StudentPage() {
       setCurrentParticipant(participant)
       setIsJoined(true)
 
+      console.log("📤 EMITTING STUDENT JOIN EVENT...")
       emit("student-join-session", sessionCode.toUpperCase(), participant)
 
-      console.log("🎓 Te uniste exitosamente a la sesión:", sessionCode.toUpperCase())
+      console.log("✅ STUDENT SUCCESSFULLY JOINED SESSION:", sessionCode.toUpperCase())
     } catch (error) {
-      console.error("Error al unirse a la sesión:", error)
+      console.error("❌ ERROR JOINING SESSION:", error)
       setError("No se pudo unir a la sesión. Intenta nuevamente.")
     } finally {
       setLoading(false)
@@ -60,17 +63,18 @@ export default function StudentPage() {
   }
 
   const respondToQuestion = async () => {
-    console.log("🔥 Intentando responder pregunta...")
-    console.log("Estado actual:", {
+    console.log("🔥 STUDENT ATTEMPTING TO RESPOND...")
+    console.log("📊 Current state:", {
       questionActive: state.questionActive,
-      currentQuestion: state.currentQuestion,
-      currentParticipant: currentParticipant,
+      currentQuestion: state.currentQuestion?.question_text,
+      currentParticipant: currentParticipant?.student_name,
       hasResponded: hasResponded,
       questionStartTime: state.questionStartTime,
+      sessionCode: state.currentSessionCode,
     })
 
     if (!state.currentQuestion || !currentParticipant || hasResponded) {
-      console.log("❌ No se puede responder:", {
+      console.log("❌ CANNOT RESPOND:", {
         noQuestion: !state.currentQuestion,
         noParticipant: !currentParticipant,
         alreadyResponded: hasResponded,
@@ -78,11 +82,11 @@ export default function StudentPage() {
       return
     }
 
-    // Calcular tiempo de respuesta
+    // Calculate response time
     const questionStartTime = state.questionStartTime || Date.now()
     const time = Date.now() - questionStartTime
 
-    console.log("⏱️ Tiempo de respuesta:", time, "ms")
+    console.log("⏱️ RESPONSE TIME:", time, "ms")
 
     setResponseTime(time)
     setHasResponded(true)
@@ -95,9 +99,9 @@ export default function StudentPage() {
         time,
       )
 
-      console.log("💾 Respuesta guardada en BD:", response)
+      console.log("💾 RESPONSE SAVED TO DB:", response)
 
-      // Emitir respuesta al profesor
+      // Emit response to teacher
       const responseData = {
         participantId: currentParticipant.id,
         responseTime: time,
@@ -105,11 +109,12 @@ export default function StudentPage() {
         responseId: response.id,
       }
 
+      console.log("📤 EMITTING STUDENT RESPONSE...")
       emit("student-response", state.currentSessionCode, responseData)
 
-      console.log("📤 Respuesta enviada al profesor:", responseData)
+      console.log("✅ RESPONSE SENT TO TEACHER:", responseData)
 
-      // Calcular ranking aproximado
+      // Calculate approximate ranking
       const currentRank = state.responses.length + 1
       setRank(currentRank)
 
@@ -118,40 +123,40 @@ export default function StudentPage() {
         setTimeout(() => setShowCelebration(false), 3000)
       }
     } catch (error) {
-      console.error("❌ Error al registrar respuesta:", error)
-      setHasResponded(false) // Permitir intentar de nuevo
+      console.error("❌ ERROR RECORDING RESPONSE:", error)
+      setHasResponded(false) // Allow retry
     }
   }
 
-  // Reset cuando hay nueva pregunta
+  // Reset when new question appears
   useEffect(() => {
     if (state.questionActive && state.currentQuestion) {
-      console.log("🆕 Nueva pregunta detectada, reseteando estado")
+      console.log("🆕 NEW QUESTION DETECTED, RESETTING STATE")
       setHasResponded(false)
       setResponseTime(null)
       setRank(null)
     }
   }, [state.questionActive, state.currentQuestion])
 
-  // Actualizar participante cuando cambie el estado
-useEffect(() => {
-  if (currentParticipant) {
-    const updatedParticipant = state.students.find((s) => s.id === currentParticipant.id);
-    if (updatedParticipant) {
-      const newParticipant = {
-        ...updatedParticipant,
-        session_id: currentParticipant.session_id,
-        joined_at: currentParticipant.joined_at,
-        is_connected: updatedParticipant.is_connected ?? currentParticipant.is_connected,
-      };
+  // Update participant when state changes
+  useEffect(() => {
+    if (currentParticipant) {
+      const updatedParticipant = state.students.find((s) => s.id === currentParticipant.id)
+      if (updatedParticipant) {
+        const newParticipant = {
+          ...updatedParticipant,
+          session_id: currentParticipant.session_id,
+          joined_at: currentParticipant.joined_at,
+          is_connected: updatedParticipant.is_connected ?? currentParticipant.is_connected,
+        }
 
-      // Only update state if the new participant data is different
-      if (JSON.stringify(newParticipant) !== JSON.stringify(currentParticipant)) {
-        setCurrentParticipant(newParticipant);
+        // Only update state if the new participant data is different
+        if (JSON.stringify(newParticipant) !== JSON.stringify(currentParticipant)) {
+          setCurrentParticipant(newParticipant)
+        }
       }
     }
-  }
-}, [state.students, currentParticipant]);
+  }, [state.students, currentParticipant])
 
   if (!isJoined) {
     return (
@@ -248,7 +253,7 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 relative overflow-hidden">
-      {/* Celebración */}
+      {/* Celebration */}
       {showCelebration && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="text-center animate-bounce">
@@ -284,7 +289,7 @@ useEffect(() => {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Área principal de preguntas */}
+          {/* Main question area */}
           <div className="lg:col-span-2">
             {state.questionActive && state.currentQuestion ? (
               <Card className="border-4 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 backdrop-blur-lg shadow-2xl animate-pulse-border">
@@ -361,25 +366,51 @@ useEffect(() => {
               </Card>
             )}
 
-            {/* Debug info - remover en producción */}
+            {/* Enhanced Debug Panel */}
             <Card className="mt-6 bg-yellow-50 border border-yellow-200">
               <CardHeader>
-                <CardTitle className="text-yellow-800 text-sm">🐛 Debug Info</CardTitle>
+                <CardTitle className="text-yellow-800 text-sm">🐛 Debug Info (DETALLADO)</CardTitle>
               </CardHeader>
-              <CardContent className="text-xs text-yellow-700">
-                <p>Question Active: {state.questionActive ? "✅" : "❌"}</p>
-                <p>Current Question: {state.currentQuestion ? "✅" : "❌"}</p>
-                <p>Has Responded: {hasResponded ? "✅" : "❌"}</p>
-                <p>Current Participant: {currentParticipant ? "✅" : "❌"}</p>
-                <p>Socket Connected: {state.isConnected ? "✅" : "❌"}</p>
+              <CardContent className="text-xs text-yellow-700 space-y-1">
                 <p>
-                  Question Start Time:{" "}
-                  {state.questionStartTime ? new Date(state.questionStartTime).toLocaleTimeString() : "❌"}
+                  <strong>Socket Connected:</strong> {state.isConnected ? "✅ YES" : "❌ NO"}
+                </p>
+                <p>
+                  <strong>Socket ID:</strong> {state.socket?.id || "❌ NO SOCKET"}
+                </p>
+                <p>
+                  <strong>Session Code:</strong> {state.currentSessionCode || "❌ NO SESSION"}
+                </p>
+                <p>
+                  <strong>Question Active:</strong> {state.questionActive ? "✅ YES" : "❌ NO"}
+                </p>
+                <p>
+                  <strong>Current Question:</strong>{" "}
+                  {state.currentQuestion ? `✅ ${state.currentQuestion.question_text}` : "❌ NO QUESTION"}
+                </p>
+                <p>
+                  <strong>Question Start Time:</strong>{" "}
+                  {state.questionStartTime
+                    ? `✅ ${new Date(state.questionStartTime).toLocaleTimeString()}`
+                    : "❌ NO TIME"}
+                </p>
+                <p>
+                  <strong>Has Responded:</strong> {hasResponded ? "✅ YES" : "❌ NO"}
+                </p>
+                <p>
+                  <strong>Current Participant:</strong>{" "}
+                  {currentParticipant ? `✅ ${currentParticipant.student_name}` : "❌ NO PARTICIPANT"}
+                </p>
+                <p>
+                  <strong>Students Count:</strong> {state.students.length}
+                </p>
+                <p>
+                  <strong>Responses Count:</strong> {state.responses.length}
                 </p>
               </CardContent>
             </Card>
 
-            {/* Estadísticas del estudiante */}
+            {/* Student stats */}
             <Card className="mt-6 bg-white/80 backdrop-blur-lg border border-slate-200">
               <CardHeader>
                 <CardTitle className="text-slate-800 text-xl">📊 Tus Estadísticas</CardTitle>
@@ -407,7 +438,7 @@ useEffect(() => {
             </Card>
           </div>
 
-          {/* Tabla de posiciones */}
+          {/* Leaderboard */}
           <div>
             <Card className="bg-white/80 backdrop-blur-lg border border-slate-200">
               <CardHeader>

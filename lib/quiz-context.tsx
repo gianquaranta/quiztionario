@@ -63,16 +63,19 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
     case "SET_CONNECTED":
       return { ...state, isConnected: action.payload }
     case "ADD_STUDENT":
+      console.log("🎯 ADDING STUDENT TO STATE:", action.payload.student_name)
       return {
         ...state,
         students: [...state.students.filter((s) => s.id !== action.payload.id), action.payload],
       }
     case "REMOVE_STUDENT":
+      console.log("👋 REMOVING STUDENT FROM STATE:", action.payload)
       return {
         ...state,
         students: state.students.filter((s) => s.id !== action.payload),
       }
     case "UPDATE_STUDENT_POINTS":
+      console.log("🏆 UPDATING STUDENT POINTS:", action.payload)
       return {
         ...state,
         students: state.students.map((s) =>
@@ -82,15 +85,16 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
     case "SET_STUDENTS":
       return { ...state, students: action.payload }
     case "ADD_RESPONSE":
-      console.log("🎯 Agregando respuesta al contexto:", action.payload)
+      console.log("📨 ADDING RESPONSE TO STATE:", action.payload.participant?.student_name)
       return {
         ...state,
         responses: [...state.responses, action.payload].sort((a, b) => a.responseTime - b.responseTime),
       }
     case "CLEAR_RESPONSES":
+      console.log("🧹 CLEARING RESPONSES")
       return { ...state, responses: [] }
     case "SET_CURRENT_QUESTION":
-      console.log("📝 Estableciendo pregunta actual:", action.payload.question.question_text)
+      console.log("❓ SETTING CURRENT QUESTION:", action.payload.question.question_text)
       return {
         ...state,
         currentQuestion: action.payload.question,
@@ -99,8 +103,7 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
       }
     case "SET_QUESTION_ACTIVE":
       if (!action.payload) {
-        // Si se desactiva la pregunta, limpiar todo
-        console.log("🛑 Desactivando pregunta y limpiando estado")
+        console.log("🛑 DEACTIVATING QUESTION AND CLEARING STATE")
         return {
           ...state,
           questionActive: false,
@@ -111,8 +114,10 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
       }
       return { ...state, questionActive: action.payload }
     case "SET_SESSION_CODE":
+      console.log("📝 SETTING SESSION CODE:", action.payload)
       return { ...state, currentSessionCode: action.payload }
     case "RESET_QUIZ":
+      console.log("🔄 RESETTING QUIZ STATE")
       return { ...initialState, socket: state.socket, isConnected: state.isConnected }
     default:
       return state
@@ -129,7 +134,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(quizReducer, initialState)
 
   useEffect(() => {
-    console.log("🔌 Inicializando Socket.IO...")
+    console.log("🔌 INITIALIZING SOCKET.IO CONNECTION...")
 
     const socket = io(process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "", {
       path: "/api/socket.io",
@@ -137,28 +142,35 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     })
 
     socket.on("connect", () => {
-      console.log("✅ Socket conectado:", socket.id)
+      console.log("✅ SOCKET CONNECTED:", socket.id)
       dispatch({ type: "SET_CONNECTED", payload: true })
+
+      // Debug: Check which rooms we're in
+      socket.emit("debug-rooms")
     })
 
     socket.on("disconnect", () => {
-      console.log("❌ Socket desconectado")
+      console.log("❌ SOCKET DISCONNECTED")
       dispatch({ type: "SET_CONNECTED", payload: false })
     })
 
-    // Eventos para el profesor
+    socket.on("error", (error) => {
+      console.error("🚨 SOCKET ERROR:", error)
+    })
+
+    // Events for teacher
     socket.on("student-joined", (participant: Student) => {
-      console.log("👥 Estudiante se unió:", participant)
+      console.log("👥 STUDENT JOINED EVENT RECEIVED:", participant.student_name)
       dispatch({ type: "ADD_STUDENT", payload: participant })
     })
 
     socket.on("student-left", (participant: Student) => {
-      console.log("👋 Estudiante se fue:", participant)
+      console.log("👋 STUDENT LEFT EVENT RECEIVED:", participant.student_name)
       dispatch({ type: "REMOVE_STUDENT", payload: participant.id })
     })
 
     socket.on("new-response", (responseData: any) => {
-      console.log("📨 Nueva respuesta recibida en contexto:", responseData)
+      console.log("📨 NEW RESPONSE EVENT RECEIVED:", responseData.participant?.student_name)
       dispatch({
         type: "ADD_RESPONSE",
         payload: {
@@ -171,41 +183,44 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     })
 
     socket.on("points-awarded", ({ participantId, totalPoints }: { participantId: string; totalPoints: number }) => {
-      console.log("🏆 Puntos otorgados:", participantId, totalPoints)
+      console.log("🏆 POINTS AWARDED EVENT RECEIVED:", participantId, totalPoints)
       dispatch({ type: "UPDATE_STUDENT_POINTS", payload: { id: participantId, points: totalPoints } })
     })
 
-    // Eventos para estudiantes
+    // Events for students
     socket.on("question-started", (data: { question: any; startTime: number; sessionCode: string }) => {
-      console.log("❓ Pregunta iniciada recibida:", data)
+      console.log("❓ QUESTION STARTED EVENT RECEIVED:", data.question.question_text)
+      console.log("⏰ Question start time:", data.startTime)
+      console.log("📍 Session code:", data.sessionCode)
+
       dispatch({ type: "SET_CURRENT_QUESTION", payload: { question: data.question, startTime: data.startTime } })
       dispatch({ type: "SET_SESSION_CODE", payload: data.sessionCode })
     })
 
     socket.on("question-ended", () => {
-      console.log("⏹️ Pregunta terminada/pausada")
+      console.log("⏹️ QUESTION ENDED EVENT RECEIVED")
       dispatch({ type: "SET_QUESTION_ACTIVE", payload: false })
     })
 
     socket.on("session-ended", () => {
-      console.log("🛑 Sesión terminada")
+      console.log("🛑 SESSION ENDED EVENT RECEIVED")
       dispatch({ type: "RESET_QUIZ" })
     })
 
     dispatch({ type: "SET_SOCKET", payload: socket })
 
     return () => {
-      console.log("🔌 Desconectando socket...")
+      console.log("🔌 DISCONNECTING SOCKET...")
       socket.disconnect()
     }
   }, [])
 
   const emit = (event: string, ...args: any[]) => {
     if (state.socket && state.isConnected) {
-      console.log(`📤 Emitiendo evento: ${event}`, args)
+      console.log(`📤 EMITTING EVENT: ${event}`, args)
       state.socket.emit(event, ...args)
     } else {
-      console.warn("⚠️ Socket no conectado, no se puede emitir:", event)
+      console.warn("⚠️ SOCKET NOT CONNECTED, CANNOT EMIT:", event)
     }
   }
 
