@@ -160,7 +160,8 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     console.log("🔌 INITIALIZING SOCKET.IO CONNECTION...")
 
     const socket = io(process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "", {
-      addTrailingSlash: false,
+      path: "/socket.io/",
+      transports: ["polling", "websocket"],
     })
 
     socket.on("connect", () => {
