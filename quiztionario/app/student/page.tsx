@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Zap, Star, Users, Home } from "lucide-react"
+import { Zap, Star, Users, Home, Trophy } from "lucide-react"
 import Link from "next/link"
 import { useQuiz } from "@/lib/quiz-context"
 import { db, type SessionParticipant } from "@/lib/supabase"

@@ -29,6 +29,7 @@ interface QuizState {
   currentSessionCode: string | null
   socket: Socket | null
   isConnected: boolean
+  sessionEnded: boolean
 }
 
 type QuizAction =
@@ -45,6 +46,7 @@ type QuizAction =
   | { type: "SET_QUESTION_ACTIVE"; payload: boolean }
   | { type: "SET_SESSION_CODE"; payload: string | null }
   | { type: "RESET_QUIZ" }
+  | { type: "SESSION_ENDED" }
 
 const initialState: QuizState = {
   students: [],
@@ -55,6 +57,7 @@ const initialState: QuizState = {
   currentSessionCode: null,
   socket: null,
   isConnected: false,
+  sessionEnded: false,
 }
 
 function quizReducer(state: QuizState, action: QuizAction): QuizState {
@@ -142,6 +145,15 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
     case "RESET_QUIZ":
       console.log("🔄 RESETTING QUIZ STATE")
       return { ...initialState, socket: state.socket, isConnected: state.isConnected }
+    case "SESSION_ENDED":
+      console.log("🏁 SESSION ENDED IN REDUCER")
+      return {
+        ...state,
+        sessionEnded: true,
+        questionActive: false,
+        currentQuestion: null,
+        questionStartTime: null,
+      }
     default:
       return state
   }
@@ -220,7 +232,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
 
     socket.on("session-ended", () => {
       console.log("🛑 SESSION ENDED EVENT RECEIVED")
-      dispatch({ type: "RESET_QUIZ" })
+      dispatch({ type: "SESSION_ENDED" })
     })
 
     dispatch({ type: "SET_SOCKET", payload: socket })
