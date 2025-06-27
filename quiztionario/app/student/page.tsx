@@ -24,6 +24,9 @@ export default function StudentPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  const [sessionClosed, setSessionClosed] = useState(false)
+  const [winner, setWinner] = useState<string | null>(null)
+
   const leaderboard = [...state.students]
     .sort((a, b) => b.total_points - a.total_points)
     .filter((s) => s.total_points > 0)
@@ -165,6 +168,41 @@ export default function StudentPage() {
       }
     }
   }, [state.students, currentParticipant])
+
+  useEffect(() => {
+    if (state.socket) {
+      state.socket.on("session-ended", (data: { reason: string; winner: string }) => {
+        console.log("❌ Session ended:", data)
+        setSessionClosed(true)
+        setWinner(data.winner)
+      })
+
+      return () => {
+        if (state.socket) {
+          state.socket.off("session-ended")
+        }
+      }
+    }
+  }, [state.socket])
+
+  if (sessionClosed) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="text-center animate-bounce">
+          <div className="text-6xl sm:text-8xl mb-4">❌</div>
+          <h2 className="text-2xl sm:text-4xl font-bold text-white mb-2">¡La sesión ha terminado!</h2>
+          {winner && (
+            <p className="text-lg sm:text-xl text-white/80">El ganador es: {winner} 🏆</p>
+          )}
+          <Link href="/">
+            <Button className="mt-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300">
+              Volver al Inicio
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   if (!isJoined) {
     return (
