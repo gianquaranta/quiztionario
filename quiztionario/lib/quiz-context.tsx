@@ -47,6 +47,7 @@ type QuizAction =
   | { type: "SET_SESSION_CODE"; payload: string | null }
   | { type: "RESET_QUIZ" }
   | { type: "SESSION_ENDED" }
+  | { type: "CLOSE_QUESTION_DEFINITIVELY"; payload: { questionId: string } }
 
 const initialState: QuizState = {
   students: [],
@@ -153,6 +154,13 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
         questionActive: false,
         currentQuestion: null,
         questionStartTime: null,
+      }
+    case "CLOSE_QUESTION_DEFINITIVELY":
+      return {
+        ...state,
+        currentQuestion: state.currentQuestion
+          ? { ...state.currentQuestion, closedDefinitively: true }
+          : state.currentQuestion,
       }
     default:
       return state

@@ -379,10 +379,14 @@ io.on('connection', (socket) => {
   });
 
   handleTeacherEvent('teacher-end-session', (roomCode) => {
-    io.to(roomCode).emit('session-ended', { reason: 'El profesor ha finalizado la sesión.' });
-    console.log(`🏁 Sesión finalizada en ${roomCode}`);
-    
     const participants = roomParticipants.get(roomCode) || [];
+
+    // Calcular el ganador
+    const winner = participants.sort((a, b) => b.total_points - a.total_points)[0]?.student_name || null;
+
+    io.to(roomCode).emit('session-ended', { reason: 'El profesor ha finalizado la sesión.', winner });
+    console.log(`🏁 Sesión finalizada en ${roomCode}. Ganador: ${winner}`);
+    
     participants.forEach(p => {
         const participantSocket = io.sockets.sockets.get(p.socketId);
         if(participantSocket) {
@@ -394,6 +398,22 @@ io.on('connection', (socket) => {
     sessionRooms.delete(roomCode);
   });
 
+  // Nuevo evento para cerrar preguntas definitivamente
+  handleTeacherEvent('teacher-close-question-definitively', (roomCode, questionId) => {
+    const participants = roomParticipants.get(roomCode) || [];
+
+    // Emitir evento a todos los participantes
+    io.to(roomCode).emit('question-closed-definitively', { questionId });
+    console.log(`🛑 Pregunta ${questionId} cerrada definitivamente en sala ${roomCode}`);
+
+    // Actualizar estado local si es necesario
+    participants.forEach((participant) => {
+      const participantSocket = io.sockets.sockets.get(participant.socketId);
+      if (participantSocket) {
+        participantSocket.emit('question-closed-definitively', { questionId });
+      }
+    });
+  });
 
   // --- Eventos del Estudiante ---
 

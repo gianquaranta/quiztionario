@@ -26,6 +26,7 @@ export default function StudentPage() {
 
   const [sessionClosed, setSessionClosed] = useState(false)
   const [winner, setWinner] = useState<string | null>(null)
+  const [questionClosedDefinitively, setQuestionClosedDefinitively] = useState(false)
 
   const leaderboard = [...state.students]
     .sort((a, b) => b.total_points - a.total_points)
@@ -74,6 +75,11 @@ export default function StudentPage() {
   }, [state.students])
 
   const respondToQuestion = async () => {
+    if (questionClosedDefinitively) {
+      setError("La pregunta ha sido cerrada definitivamente y no se puede responder.")
+      return
+    }
+
     console.log("🔥 STUDENT ATTEMPTING TO RESPOND...")
     console.log("📊 Current state:", {
       questionActive: state.questionActive,
@@ -185,20 +191,23 @@ export default function StudentPage() {
     }
   }, [state.socket])
 
+  useEffect(() => {
+    if (state.sessionEnded) {
+      setSessionClosed(true)
+      setWinner(state.students.sort((a, b) => b.total_points - a.total_points)[0]?.student_name || null)
+    }
+
+    if (!state.questionActive && state.currentQuestion && state.currentQuestion.closedDefinitively) {
+      setQuestionClosedDefinitively(true)
+    }
+  }, [state.sessionEnded, state.questionActive, state.currentQuestion])
+
   if (sessionClosed) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="text-center animate-bounce">
-          <div className="text-6xl sm:text-8xl mb-4">❌</div>
-          <h2 className="text-2xl sm:text-4xl font-bold text-white mb-2">¡La sesión ha terminado!</h2>
-          {winner && (
-            <p className="text-lg sm:text-xl text-white/80">El ganador es: {winner} 🏆</p>
-          )}
-          <Link href="/">
-            <Button className="mt-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300">
-              Volver al Inicio
-            </Button>
-          </Link>
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">La sesión ha finalizado</h1>
+          {winner && <p className="text-lg">El ganador es: {winner}</p>}
         </div>
       </div>
     )
