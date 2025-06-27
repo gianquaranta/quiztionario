@@ -311,304 +311,189 @@ function calculateScore(timeLeft, maxTime = 30) {
   return baseScore + timeBonus;
 }
 
-// Configuración de Socket.IO
+// --- NUEVA LÓGICA DE SOCKET.IO ---
+const sessionRooms = new Map(); // Almacena el profesor de cada sala: { [roomCode]: teacherSocketId }
+const participantRooms = new Map(); // Almacena la sala de cada participante: { [socket.id]: roomCode }
+const roomParticipants = new Map(); // Almacena la lista de participantes por sala: { [roomCode]: [participant] }
+
 io.on('connection', (socket) => {
   console.log(`🔌 Usuario conectado: ${socket.id}`);
 
-  // Evento ping para testing
-  socket.on('ping', (timestamp) => {
-    socket.emit('pong', timestamp);
+  // --- Eventos del Profesor ---
+
+  socket.on('teacher-start-session', (roomCode, sessionId) => {
+    console.log(`👨‍🏫 Profesor ${socket.id} inició sesión en sala ${roomCode}`);
+    socket.join(roomCode);
+    sessionRooms.set(roomCode, socket.id);
+    participantRooms.set(socket.id, roomCode);
+    roomParticipants.set(roomCode, []); // Inicializar lista de participantes
   });
 
-  // Evento: Crear nuevo quiz (profesor)
-  socket.on('create-quiz', (quizData) => {
-    try {
-      const roomCode = generateRoomCode();
-      const quiz = {
-        id: roomCode,
-        title: quizData.title || 'Quiz sin título',
-        questions: quizData.questions || [],
-        createdBy: socket.id,
-        currentQuestion: 0,
-        status: 'waiting', // waiting, active, finished
-        participants: new Map(),
-        startTime: null,
-        questionStartTime: null
-      };
-
-      activeQuizzes.set(roomCode, quiz);
-      socket.join(roomCode);
-      userRooms.set(socket.id, roomCode);
-
-      socket.emit('quiz-created', { 
-        roomCode, 
-        quiz: {
-          id: quiz.id,
-          title: quiz.title,
-          totalQuestions: quiz.questions.length,
-          status: quiz.status
-        }
-      });
-
-      console.log(`📝 Quiz creado: ${roomCode} por ${socket.id}`);
-    } catch (error) {
-      console.error('Error creating quiz:', error);
-      socket.emit('error', { message: 'Error al crear el quiz' });
-    }
-  });
-
-  // Evento: Unirse a quiz (estudiante)
-  socket.on('join-quiz', (data) => {
-    try {
-      const { roomCode, playerName } = data;
-      const quiz = activeQuizzes.get(roomCode);
-
-      if (!quiz) {
-        socket.emit('error', { message: 'Quiz no encontrado' });
-        return;
-      }
-
-      if (quiz.status !== 'waiting') {
-        socket.emit('error', { message: 'El quiz ya ha comenzado' });
-        return;
-      }
-
-      // Verificar si el nombre ya existe
-      const existingPlayer = Array.from(quiz.participants.values())
-        .find(p => p.name.toLowerCase() === playerName.toLowerCase());
-
-      if (existingPlayer) {
-        socket.emit('error', { message: 'Ese nombre ya está en uso' });
-        return;
-      }
-
-      const participant = {
-        id: socket.id,
-        name: playerName,
-        score: 0,
-        answers: [],
-        joinedAt: new Date()
-      };
-
-      quiz.participants.set(socket.id, participant);
-      socket.join(roomCode);
-      userRooms.set(socket.id, roomCode);
-
-      socket.emit('joined-quiz', { 
-        roomCode, 
-        playerName,
-        quiz: {
-          id: quiz.id,
-          title: quiz.title,
-          totalQuestions: quiz.questions.length,
-          status: quiz.status
-        }
-      });
-
-      // Notificar a todos en la sala sobre el nuevo participante
-      const participantsList = Array.from(quiz.participants.values())
-        .map(p => ({ name: p.name, score: p.score }));
-
-      io.to(roomCode).emit('participants-updated', participantsList);
-
-      console.log(`👤 ${playerName} se unió al quiz ${roomCode}`);
-    } catch (error) {
-      console.error('Error joining quiz:', error);
-      socket.emit('error', { message: 'Error al unirse al quiz' });
-    }
-  });
-
-  // Evento: Iniciar quiz (profesor)
-  socket.on('start-quiz', (data) => {
-    try {
-      const { roomCode } = data;
-      const quiz = activeQuizzes.get(roomCode);
-
-      if (!quiz || quiz.createdBy !== socket.id) {
-        socket.emit('error', { message: 'No tienes permisos para iniciar este quiz' });
-        return;
-      }
-
-      if (quiz.participants.size === 0) {
-        socket.emit('error', { message: 'No hay participantes en el quiz' });
-        return;
-      }
-
-      quiz.status = 'active';
-      quiz.currentQuestion = 0;
-      quiz.startTime = new Date();
-      quiz.questionStartTime = new Date();
-
-      const currentQuestion = quiz.questions[0];
-      const questionData = {
-        questionNumber: 1,
-        totalQuestions: quiz.questions.length,
-        question: currentQuestion.question,
-        options: currentQuestion.options,
-        timeLimit: currentQuestion.timeLimit || 30
-      };
-
-      io.to(roomCode).emit('quiz-started', questionData);
-      console.log(`🚀 Quiz ${roomCode} iniciado`);
-    } catch (error) {
-      console.error('Error starting quiz:', error);
-      socket.emit('error', { message: 'Error al iniciar el quiz' });
-    }
-  });
-
-  // Evento: Responder pregunta (estudiante)
-  socket.on('submit-answer', (data) => {
-    try {
-      const { roomCode, answer, timeLeft } = data;
-      const quiz = activeQuizzes.get(roomCode);
-
-      if (!quiz || quiz.status !== 'active') {
-        socket.emit('error', { message: 'Quiz no disponible' });
-        return;
-      }
-
-      const participant = quiz.participants.get(socket.id);
-      if (!participant) {
-        socket.emit('error', { message: 'No estás registrado en este quiz' });
-        return;
-      }
-
-      const currentQuestion = quiz.questions[quiz.currentQuestion];
-      const isCorrect = answer === currentQuestion.correctAnswer;
-      
-      let points = 0;
-      if (isCorrect) {
-        points = calculateScore(timeLeft, currentQuestion.timeLimit || 30);
-        participant.score += points;
-      }
-
-      participant.answers.push({
-        questionIndex: quiz.currentQuestion,
-        answer,
-        isCorrect,
-        points,
-        timeLeft
-      });
-
-      socket.emit('answer-submitted', { 
-        isCorrect, 
-        points,
-        correctAnswer: currentQuestion.correctAnswer
-      });
-
-      console.log(`💡 ${participant.name} respondió: ${answer} (${isCorrect ? 'Correcto' : 'Incorrecto'})`);
-    } catch (error) {
-      console.error('Error submitting answer:', error);
-      socket.emit('error', { message: 'Error al enviar respuesta' });
-    }
-  });
-
-  // Evento: Siguiente pregunta (profesor)
-  socket.on('next-question', (data) => {
-    try {
-      const { roomCode } = data;
-      const quiz = activeQuizzes.get(roomCode);
-
-      if (!quiz || quiz.createdBy !== socket.id) {
-        socket.emit('error', { message: 'No tienes permisos' });
-        return;
-      }
-
-      quiz.currentQuestion++;
-
-      if (quiz.currentQuestion >= quiz.questions.length) {
-        // Quiz terminado
-        quiz.status = 'finished';
-        
-        const finalResults = Array.from(quiz.participants.values())
-          .map(p => ({
-            name: p.name,
-            score: p.score,
-            correctAnswers: p.answers.filter(a => a.isCorrect).length
-          }))
-          .sort((a, b) => b.score - a.score);
-
-        io.to(roomCode).emit('quiz-finished', { results: finalResults });
-        console.log(`🏁 Quiz ${roomCode} terminado`);
+  const handleTeacherEvent = (eventName, handler) => {
+    socket.on(eventName, (roomCode, ...args) => {
+      if (sessionRooms.get(roomCode) === socket.id) {
+        console.log(`📢 Profesor ${socket.id} emitió ${eventName} en sala ${roomCode}`);
+        handler(roomCode, ...args);
       } else {
-        // Siguiente pregunta
-        quiz.questionStartTime = new Date();
-        const currentQuestion = quiz.questions[quiz.currentQuestion];
-        
-        const questionData = {
-          questionNumber: quiz.currentQuestion + 1,
-          totalQuestions: quiz.questions.length,
-          question: currentQuestion.question,
-          options: currentQuestion.options,
-          timeLimit: currentQuestion.timeLimit || 30
-        };
-
-        io.to(roomCode).emit('next-question', questionData);
-        console.log(`➡️ Quiz ${roomCode} - Pregunta ${quiz.currentQuestion + 1}`);
+        console.warn(`⚠️ Intento no autorizado de ${eventName} por ${socket.id} en sala ${roomCode}`);
       }
-    } catch (error) {
-      console.error('Error next question:', error);
-      socket.emit('error', { message: 'Error al pasar a la siguiente pregunta' });
-    }
+    });
+  };
+
+  handleTeacherEvent('teacher-start-question', (roomCode, data) => {
+    // Explicitly add the roomCode to the payload for the client
+    const payload = {
+      ...data,
+      sessionCode: roomCode
+    };
+    io.to(roomCode).emit('question-started', payload);
+    console.log(`❓ Pregunta iniciada en ${roomCode}:`, data.question.question_text);
   });
 
-  // Evento: Obtener leaderboard
-  socket.on('get-leaderboard', (data) => {
-    try {
-      const { roomCode } = data;
-      const quiz = activeQuizzes.get(roomCode);
-
-      if (!quiz) {
-        socket.emit('error', { message: 'Quiz no encontrado' });
-        return;
-      }
-
-      const leaderboard = Array.from(quiz.participants.values())
-        .map(p => ({
-          name: p.name,
-          score: p.score,
-          correctAnswers: p.answers.filter(a => a.isCorrect).length
-        }))
-        .sort((a, b) => b.score - a.score);
-
-      socket.emit('leaderboard-updated', leaderboard);
-    } catch (error) {
-      console.error('Error getting leaderboard:', error);
-      socket.emit('error', { message: 'Error al obtener clasificación' });
-    }
+  handleTeacherEvent('teacher-pause-question', (roomCode) => {
+    io.to(roomCode).emit('question-ended'); // Reutilizamos este evento para pausar
+    console.log(`⏸️ Pregunta pausada en ${roomCode}`);
   });
 
-  // Evento: Desconexión
-  socket.on('disconnect', () => {
-    try {
-      const roomCode = userRooms.get(socket.id);
+  handleTeacherEvent('teacher-end-question', (roomCode) => {
+    io.to(roomCode).emit('question-ended');
+    console.log(`🛑 Pregunta finalizada en ${roomCode}`);
+  });
+
+  handleTeacherEvent('teacher-award-points', (roomCode, participantId, totalPoints) => {
+    const participants = roomParticipants.get(roomCode) || [];
+    const participant = participants.find(p => p.id === participantId);
+
+    if (participant) {
+      participant.total_points = totalPoints;
+      roomParticipants.set(roomCode, participants);
       
-      if (roomCode) {
-        const quiz = activeQuizzes.get(roomCode);
-        
-        if (quiz) {
-          // Si es el creador del quiz, eliminar el quiz
-          if (quiz.createdBy === socket.id) {
-            activeQuizzes.delete(roomCode);
-            socket.to(roomCode).emit('quiz-ended', { reason: 'El profesor se desconectó' });
-            console.log(`🗑️ Quiz ${roomCode} eliminado (creador desconectado)`);
-          } else {
-            // Si es un participante, removerlo de la lista
-            quiz.participants.delete(socket.id);
-            
-            const participantsList = Array.from(quiz.participants.values())
-              .map(p => ({ name: p.name, score: p.score }));
-            
-            socket.to(roomCode).emit('participants-updated', participantsList);
-          }
+      console.log(`🏆 Puntos actualizados para ${participant.student_name} en ${roomCode}: ${totalPoints}`);
+      
+      // Notificar a todos de la lista actualizada, que es la fuente de verdad
+      io.to(roomCode).emit('participants-list', participants);
+
+    } else {
+        console.warn(`⚠️ No se encontró al participante ${participantId} para otorgar puntos en la sala ${roomCode}`);
+    }
+  });
+
+  handleTeacherEvent('teacher-end-session', (roomCode) => {
+    io.to(roomCode).emit('session-ended', { reason: 'El profesor ha finalizado la sesión.' });
+    console.log(`🏁 Sesión finalizada en ${roomCode}`);
+    
+    const participants = roomParticipants.get(roomCode) || [];
+    participants.forEach(p => {
+        const participantSocket = io.sockets.sockets.get(p.socketId);
+        if(participantSocket) {
+            participantSocket.leave(roomCode);
         }
-        
-        userRooms.delete(socket.id);
+        participantRooms.delete(p.socketId);
+    });
+    roomParticipants.delete(roomCode);
+    sessionRooms.delete(roomCode);
+  });
+
+
+  // --- Eventos del Estudiante ---
+
+  socket.on('join-session', (data) => {
+    const { sessionCode, participantId, studentName } = data;
+    console.log(`🎓 Estudiante ${studentName} (${socket.id}) intentando unirse a ${sessionCode}`);
+
+    if (sessionRooms.has(sessionCode)) {
+      socket.join(sessionCode);
+      participantRooms.set(socket.id, sessionCode);
+
+      const participants = roomParticipants.get(sessionCode) || [];
+      const existingParticipantIndex = participants.findIndex(p => p.id === participantId);
+
+      if (existingParticipantIndex !== -1) {
+        // El participante se está reconectando
+        participants[existingParticipantIndex].is_connected = true;
+        participants[existingParticipantIndex].socketId = socket.id;
+        console.log(`🔄 ${studentName} se ha reconectado a la sala ${sessionCode}.`);
+      } else {
+        // Nuevo participante
+        const newParticipant = {
+          id: participantId,
+          socketId: socket.id,
+          student_name: studentName,
+          total_points: 0,
+          is_connected: true,
+          joined_at: new Date().toISOString()
+        };
+        participants.push(newParticipant);
+        console.log(`✅ ${studentName} se unió a la sala ${sessionCode}.`);
       }
-      
-      console.log(`🔌 Usuario desconectado: ${socket.id}`);
-    } catch (error) {
-      console.error('Error on disconnect:', error);
+
+      roomParticipants.set(sessionCode, participants);
+
+      // Notificar a todos en la sala (profesor y otros estudiantes)
+      io.to(sessionCode).emit('participants-list', participants);
+      console.log(`📢 Lista de participantes actualizada enviada a la sala ${sessionCode}. Total: ${participants.length}`);
+
+    } else {
+      console.log(`❌ Sala ${sessionCode} no encontrada para ${studentName}`);
+      socket.emit('error', { message: 'La sesión no existe o no ha sido iniciada por el profesor.' });
+    }
+  });
+
+  socket.on('student-response', (roomCode, responseData) => {
+    const teacherSocketId = sessionRooms.get(roomCode);
+    if (teacherSocketId) {
+      console.log(`📨 Respuesta de ${responseData.participant?.student_name} enviada al profesor en sala ${roomCode}`);
+      io.to(teacherSocketId).emit('new-response', responseData);
+    }
+  });
+
+
+  // --- Eventos Generales ---
+
+  socket.on('debug-rooms', () => {
+    console.log('🔍 DEBUG: Sockets y Salas:', {
+      participantRooms: Array.from(participantRooms.entries()),
+      sessionRooms: Array.from(sessionRooms.entries()),
+    });
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`🔌 Usuario desconectado: ${socket.id}`);
+    const roomCode = participantRooms.get(socket.id);
+
+    if (roomCode) {
+      // ¿Era el profesor?
+      if (sessionRooms.get(roomCode) === socket.id) {
+        console.log(`👨‍🏫 Profesor de la sala ${roomCode} se ha desconectado. Finalizando sesión.`);
+        io.to(roomCode).emit('session-ended', { reason: 'El profesor se ha desconectado.' });
+        
+        const participants = roomParticipants.get(roomCode) || [];
+        participants.forEach(p => {
+          const participantSocket = io.sockets.sockets.get(p.socketId);
+          if(participantSocket) {
+            participantSocket.leave(roomCode);
+          }
+          participantRooms.delete(p.socketId);
+        });
+        roomParticipants.delete(roomCode);
+        sessionRooms.delete(roomCode);
+
+      } else {
+        // Era un estudiante
+        const participants = roomParticipants.get(roomCode) || [];
+        const disconnectedParticipantIndex = participants.findIndex(p => p.socketId === socket.id);
+        
+        if (disconnectedParticipantIndex !== -1) {
+          const disconnectedParticipant = participants[disconnectedParticipantIndex];
+          console.log(`👋 Estudiante ${disconnectedParticipant.student_name} se ha desconectado de ${roomCode}`);
+          
+          participants[disconnectedParticipantIndex].is_connected = false;
+          roomParticipants.set(roomCode, participants);
+          
+          io.to(roomCode).emit('participants-list', participants);
+        }
+      }
+      participantRooms.delete(socket.id);
     }
   });
 });

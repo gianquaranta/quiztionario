@@ -300,30 +300,36 @@ function TeacherDashboard() {
   }
 
   const awardPoints = async (participantId: string, points: number) => {
+    if (!activeSession) return;
+
     try {
-      const response = responses.find((r) => r.participant?.id === participantId)
+      // Obtener participante del estado central
+      const participant = state.students.find((p) => p.id === participantId);
+      if (!participant) {
+        console.error("❌ Participante no encontrado en el estado central");
+        return;
+      }
+
+      // Calcular el nuevo total de puntos
+      const newTotalPoints = participant.total_points + points;
+
+      // Opcional: Actualizar la base de datos con el ranking
+      const response = responses.find((r) => r.participant?.id === participantId);
       if (response && response.id) {
-        const rank = responses.findIndex((r) => r.participant?.id === participantId) + 1
-        await db.awardPoints(response.id, points, rank)
+        const rank = responses.findIndex((r) => r.participant?.id === participantId) + 1;
+        await db.awardPoints(response.id, points, rank);
       }
 
-      const updatedParticipants = participants.map((p) =>
-        p.id === participantId ? { ...p, total_points: p.total_points + points } : p,
-      )
-      setParticipants(updatedParticipants)
+      // Emitir el evento con el nuevo puntaje total
+      emit("teacher-award-points", activeSession.session_code, participantId, newTotalPoints);
+      
+      console.log(`🏆 Puntos otorgados a ${participant.student_name}. Nuevo total: ${newTotalPoints}`);
 
-      if (activeSession) {
-        const participant = participants.find((p) => p.id === participantId)
-        if (participant) {
-          emit("teacher-award-points", activeSession.session_code, participantId, participant.total_points + points)
-        }
-      }
+      // Finalizar la pregunta explícitamente para que todos los clientes actualicen su UI
+      endQuestion();
 
-      // La pregunta se cierra automáticamente cuando se otorgan puntos
-      // El servidor enviará "question-ended" que actualizará el estado
-      console.log(`🏆 Puntos otorgados - la pregunta se cerrará automáticamente`)
     } catch (error) {
-      console.error("❌ Error al otorgar puntos:", error)
+      console.error("❌ Error al otorgar puntos:", error);
     }
   }
 

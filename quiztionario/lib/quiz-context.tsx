@@ -190,17 +190,6 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     })
 
     // Events for teacher
-    socket.on("student-joined", (participant: Student) => {
-      console.log("� STUDENT JOINED EVENT RECEIVED:", participant.student_name)
-      console.log("👥 Current students in state:", state.students.map(s => s.student_name))
-      dispatch({ type: "ADD_STUDENT", payload: participant })
-    })
-
-    socket.on("student-left", (participant: Student) => {
-      console.log("👋 STUDENT LEFT EVENT RECEIVED:", participant.student_name)
-      dispatch({ type: "REMOVE_STUDENT", payload: participant.id })
-    })
-
     socket.on("new-response", (responseData: any) => {
       console.log("📨 NEW RESPONSE EVENT RECEIVED:", responseData.participant?.student_name)
       dispatch({
@@ -212,11 +201,6 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
           timestamp: Date.now(),
         },
       })
-    })
-
-    socket.on("points-awarded", ({ participantId, totalPoints }: { participantId: string; totalPoints: number }) => {
-      console.log("🏆 POINTS AWARDED EVENT RECEIVED:", participantId, totalPoints)
-      dispatch({ type: "UPDATE_STUDENT_POINTS", payload: { id: participantId, points: totalPoints } })
     })
 
     // Events for students

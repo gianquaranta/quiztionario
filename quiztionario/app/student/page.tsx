@@ -50,21 +50,14 @@ export default function StudentPage() {
       setCurrentParticipant(participant)
       setIsJoined(true)
 
-      console.log("📤 EMITTING STUDENT JOIN EVENT...")
-      emit("student-join-session", sessionCode.toUpperCase(), participant)
-
-      console.log("✅ STUDENT SUCCESSFULLY JOINED SESSION:", sessionCode.toUpperCase())
-      
-      // NUEVO: Forzar solicitud de lista de participantes
-      console.log("🔄 REQUESTING PARTICIPANTS LIST...")
-      emit("request-participants", sessionCode.toUpperCase())
-      
-      // Debug: Log current students after joining
-      setTimeout(() => {
-        console.log("🔍 STUDENTS IN STATE AFTER JOIN:", state.students.map(s => s.student_name))
-      }, 2000)
+      // Notificar al servidor a través de socket
+      emit("join-session", {
+        sessionCode: sessionCode.toUpperCase(),
+        participantId: participant.id,
+        studentName: participant.student_name,
+      })
     } catch (error) {
-      console.error("❌ ERROR JOINING SESSION:", error)
+      console.error("❌ Error joining quiz:", error)
       setError("No se pudo unir a la sesión. Intentá nuevamente.")
     } finally {
       setLoading(false)
