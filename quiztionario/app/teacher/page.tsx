@@ -257,6 +257,11 @@ function TeacherDashboard() {
   }
 
   const startQuestion = (question: any) => {
+    if (question.closedDefinitively) {
+      console.warn("❌ Esta pregunta ya fue cerrada definitivamente y no puede ser activada nuevamente.")
+      return
+    }
+
     const startTime = Date.now()
     setCurrentQuestion(question)
     setQuestionActive(true)
@@ -268,9 +273,8 @@ function TeacherDashboard() {
     if (activeSession) {
       // Emitir a todos los estudiantes
       emit("teacher-start-question", activeSession.session_code, {
-        question: question,
-        startTime: startTime,
-        sessionCode: activeSession.session_code,
+        question,
+        startTime,
       })
 
       console.log("📡 Pregunta enviada a estudiantes via Socket.IO")

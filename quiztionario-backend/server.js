@@ -367,14 +367,21 @@ io.on('connection', (socket) => {
     if (participant) {
       participant.total_points = totalPoints;
       roomParticipants.set(roomCode, participants);
-      
+
       console.log(`🏆 Puntos actualizados para ${participant.student_name} en ${roomCode}: ${totalPoints}`);
-      
-      // Notificar a todos de la lista actualizada, que es la fuente de verdad
+
+      // Marcar la pregunta como cerrada definitivamente
+      const currentQuestion = participants.find(p => p.current_question_id);
+      if (currentQuestion) {
+        currentQuestion.closedDefinitively = true;
+      }
+
+      // Notificar a todos de la lista actualizada
       io.to(roomCode).emit('participants-list', participants);
+      io.to(roomCode).emit('question-closed-definitively', { questionId: currentQuestion?.id });
 
     } else {
-        console.warn(`⚠️ No se encontró al participante ${participantId} para otorgar puntos en la sala ${roomCode}`);
+      console.warn(`⚠️ No se encontró al participante ${participantId} para otorgar puntos en la sala ${roomCode}`);
     }
   });
 
